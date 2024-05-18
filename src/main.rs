@@ -16,6 +16,12 @@ use serde::{Deserialize, Serialize};
 
 mod gps;
 
+pub fn hash(bssid: &str, ssid: &str) -> String {
+    sha256::digest(format!("beacon_{bssid}_{ssid}"))
+}
+
+// This is used instead of Radiotap.antenna_signal as my packets have multiple
+// AntennaSignal fields and some of there are 0, this ensures a valid value
 pub fn get_signal(input: &[u8]) -> Result<Option<i8>> {
     let fields = RadiotapIterator::from_bytes(&input)?;
     for field in fields {
@@ -35,9 +41,10 @@ pub fn get_signal(input: &[u8]) -> Result<Option<i8>> {
 }
 
 fn handle_packet(packet: Packet) -> Result<RawBeacon> {
-    let signal = get_signal(&packet.data)?.context("Missing signal")?;
-
     let radiotap = Radiotap::from_bytes(&packet.data)?;
+    // let signal = radiotap.antenna_signal.context("missing signal")?.value;
+    let signal = get_signal(&packet.data)?.context("missing signal")?;
+
     let payload = &packet.data[radiotap.header.length..];
     let frame = libwifi::parse_frame(payload)?;
     let src = frame.src().context("Missing source address")?.clone();
@@ -83,15 +90,13 @@ struct RawBeacon {
 }
 
 #[derive(Debug, Deserialize, Serialize)]
-struct Beacon {
+struct Observation {
     pub timestamp_ms: u64,
     pub lat: f64,
     pub lon: f64,
     pub channel: u8,
-    pub rx_freq: u16,
     pub rss: i8,
-    pub bssid: String,
-    pub ssid: Option<String>,
+    pub hash: String,
 }
 
 #[derive(Parser, Debug)]
@@ -143,17 +148,16 @@ fn main() -> Result<()> {
                 (prev.lat, prev.lon)
             };
 
-            let beacon = Beacon {
+            let hash = hash(&p.mac, &p.ssid.unwrap_or_default());
+            let o = Observation {
                 lat,
                 lon,
                 channel: p.channel,
-                rx_freq: p.frequency,
-                bssid: p.mac,
                 rss: p.signal,
-                ssid: p.ssid,
                 timestamp_ms: p.timestamp_ms,
+                hash,
             };
-            w.serialize(&beacon)?;
+            w.serialize(&o)?;
         }
     }
 }
