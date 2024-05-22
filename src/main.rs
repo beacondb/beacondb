@@ -1,6 +1,7 @@
 use actix_web::{get, web, App, HttpServer};
 use sqlx::PgPool;
 
+mod geolocate;
 mod geosubmit;
 mod observation;
 
@@ -18,6 +19,7 @@ async fn main() -> anyhow::Result<()> {
         App::new()
             .app_data(web::Data::new(pool.clone()))
             .service(index)
+            .service(geolocate::service)
             .service(geosubmit::service)
             .app_data(web::JsonConfig::default().limit(50 * 1024 * 1024))
     })
