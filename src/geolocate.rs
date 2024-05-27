@@ -39,12 +39,12 @@ struct AccessPoint {
 #[derive(Debug, Serialize)]
 struct LocationResponse {
     location: Location,
-    accuracy: f32,
+    accuracy: f64,
 }
 #[derive(Debug, Serialize)]
 struct Location {
-    lat: f32,
-    lng: f32,
+    lat: f64,
+    lng: f64,
 }
 
 #[post("/v1/geolocate")]
@@ -100,8 +100,8 @@ pub async fn service(
     // if count == 0 {
     return Ok(HttpResponse::NotFound().into());
     // } else {
-    //     let lat = lat as f32 / count as f32 / 1000.0;
-    //     let lng = lon as f32 / count as f32 / 1000.0;
+    //     let lat = lat as f64 / count as f64 / 1000.0;
+    //     let lng = lon as f64 / count as f64 / 1000.0;
     //     println!("https://openstreetmap.org/search?query={lat}%2C{lng}");
     //     Ok(HttpResponse::Ok().json(LocationResponse {
     //         location: Location { lat, lng },
