@@ -6,22 +6,22 @@ mod cells;
 
 #[derive(Debug, Parser)]
 struct Cli {
-    #[clap(subcommand)]
-    subcommand: Subcommand,
-}
-
-#[derive(Debug, clap::Subcommand, Clone)]
-enum Subcommand {
-    ImportCells,
-    Serve,
-    ProcessSubmissions,
+    #[arg(short, long)]
+    database_path: Option<String>,
+    #[arg(short, long)]
+    port: Option<u16>,
 }
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    let cli = Cli::parse();
     let pool = SqlitePool::connect_with(
         SqliteConnectOptions::new()
-            .filename("../beacondb/beacon.db")
+            .filename(
+                cli.database_path
+                    .as_deref()
+                    .unwrap_or("../beacondb/beacon.db"),
+            )
             .read_only(true),
     )
     .await?;
@@ -31,7 +31,7 @@ async fn main() -> anyhow::Result<()> {
             .app_data(web::Data::new(pool.clone()))
             .service(cells::cell_area)
     })
-    .bind(("0.0.0.0", 8099))?
+    .bind(("0.0.0.0", cli.port.unwrap_or(8080)))?
     .run()
     .await?;
 
