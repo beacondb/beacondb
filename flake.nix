@@ -1,20 +1,30 @@
 {
   inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
+
+    crane = {
+      url = "github:ipetkov/crane";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     flake-utils.url = "github:numtide/flake-utils";
-    nixpkgs.url = "github:joelkoen/nixpkgs";
   };
 
-  outputs = { self, nixpkgs, flake-utils }:
+  outputs = { nixpkgs, crane, flake-utils, ... }:
     flake-utils.lib.eachDefaultSystem (system:
       let
-        pkgs = import nixpkgs {
-          inherit system;
-        };
+        pkgs = nixpkgs.legacyPackages.${system};
+        lib = pkgs.lib;
+        craneLib = crane.lib.${system};
       in
-      with pkgs;
       {
-        devShells.default = mkShell {
-          buildInputs = [ libpcap ];
+        packages.default = craneLib.buildPackage {
+          src = lib.cleanSourceWith {
+            src = craneLib.path ./beacondb-api;
+            filter = path: type:
+              lib.hasInfix "/.sqlx" path
+              || craneLib.filterCargoSources path type;
+          };
         };
       });
 }

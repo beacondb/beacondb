@@ -1,0 +1,56 @@
+{
+  "db_name": "SQLite",
+  "query": "select cell, unit, lon, lat, range, created, updated from cell where radio = ?1 and country = ?2 and network = ?3 and area = ?4",
+  "describe": {
+    "columns": [
+      {
+        "name": "cell",
+        "ordinal": 0,
+        "type_info": "Int64"
+      },
+      {
+        "name": "unit",
+        "ordinal": 1,
+        "type_info": "Int64"
+      },
+      {
+        "name": "lon",
+        "ordinal": 2,
+        "type_info": "Float"
+      },
+      {
+        "name": "lat",
+        "ordinal": 3,
+        "type_info": "Float"
+      },
+      {
+        "name": "range",
+        "ordinal": 4,
+        "type_info": "Float"
+      },
+      {
+        "name": "created",
+        "ordinal": 5,
+        "type_info": "Int64"
+      },
+      {
+        "name": "updated",
+        "ordinal": 6,
+        "type_info": "Int64"
+      }
+    ],
+    "parameters": {
+      "Right": 4
+    },
+    "nullable": [
+      false,
+      true,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "fd6efa0eb1725d36402398bf967edb21105483ff6ae07089cf028b13c472317a"
+}
