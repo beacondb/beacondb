@@ -113,14 +113,13 @@ async fn insert(
     let mut tx = pool.begin().await?;
     for (cell, bounds) in cells {
         let (x, y, r) = bounds.x_y_r();
-        dbg!(x, y);
         let radio = match cell.radio_type {
             RadioType::Gsm => 0,
             RadioType::Wcdma => 1,
             RadioType::Lte => 2,
         };
         query!(
-            "insert into cell_submissions (
+            "insert into cell_submission (
                 radio, country, network, area, cell, unit, x, y, r
             ) values (
                 $1, $2, $3, $4, $5, $6, $7, $8, $9
@@ -146,7 +145,7 @@ async fn insert(
 
         let (x, y, r) = bounds.x_y_r();
         query!(
-            "insert into wifi_submissions (
+            "insert into wifi_submission (
                 bssid, ssid, x, y, r
             ) values (
                 $1, $2, $3, $4, $5

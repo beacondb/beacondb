@@ -77,31 +77,28 @@ pub async fn service(
         }
     }
 
-    // // TODO: come up with a useful estimation algorithm
+    // TODO: come up with a useful estimation algorithm
     // let mut count = 0;
-    // let mut lat = 0;
-    // let mut lon = 0;
+    // let mut xs = 0.0;
+    // let mut ys = 0.0;
     // for x in data.wifi_access_points {
-    //     let y = query!(
-    //         "select latitude, longitude from wifi_grid where bssid = $1",
-    //         x.mac_address
-    //     )
-    //     .fetch_all(&*pool)
-    //     .await
-    //     .map_err(ErrorInternalServerError)?;
-    //     for y in y {
-    //         println!("{} {} {}", x.mac_address, y.latitude, y.longitude);
+    //     let w = query!("select x,y,r from wifi where bssid = $1", x.mac_address)
+    //         .fetch_optional(&*pool)
+    //         .await
+    //         .map_err(ErrorInternalServerError)?;
+    //     if let Some(w) = w {
+    //         println!("{} {} {}", x.mac_address, w.x, w.y);
     //         count += 1;
-    //         lat += y.latitude;
-    //         lon += y.longitude;
+    //         xs += w.x;
+    //         ys += w.y;
     //     }
     // }
 
     // if count == 0 {
     return Ok(HttpResponse::NotFound().into());
     // } else {
-    //     let lat = lat as f64 / count as f64 / 1000.0;
-    //     let lng = lon as f64 / count as f64 / 1000.0;
+    //     let lng = xs / count as f64;
+    //     let lat = ys / count as f64;
     //     println!("https://openstreetmap.org/search?query={lat}%2C{lng}");
     //     Ok(HttpResponse::Ok().json(LocationResponse {
     //         location: Location { lat, lng },

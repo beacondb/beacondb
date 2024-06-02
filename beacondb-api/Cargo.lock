@@ -370,7 +370,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8c3c1a368f70d6cf7302d78f8f7093da241fb8e8807c05cc9e51a125895a6d5b"
 
 [[package]]
-name = "beacondb"
+name = "beacondb-api"
 version = "0.1.0"
 dependencies = [
  "actix-web",
@@ -1932,7 +1932,6 @@ dependencies = [
  "atoi",
  "byteorder",
  "bytes",
- "chrono",
  "crc",
  "crossbeam-queue",
  "either",
@@ -1946,7 +1945,6 @@ dependencies = [
  "hex",
  "indexmap",
  "log",
- "mac_address",
  "memchr",
  "once_cell",
  "paste",
@@ -1994,7 +1992,6 @@ dependencies = [
  "sha2",
  "sqlx-core",
  "sqlx-mysql",
- "sqlx-postgres",
  "sqlx-sqlite",
  "syn 1.0.109",
  "tempfile",
@@ -2013,7 +2010,6 @@ dependencies = [
  "bitflags 2.5.0",
  "byteorder",
  "bytes",
- "chrono",
  "crc",
  "digest",
  "dotenvy",
@@ -2055,7 +2051,6 @@ dependencies = [
  "base64 0.21.7",
  "bitflags 2.5.0",
  "byteorder",
- "chrono",
  "crc",
  "dotenvy",
  "etcetera",
@@ -2069,7 +2064,6 @@ dependencies = [
  "home",
  "itoa",
  "log",
- "mac_address",
  "md-5",
  "memchr",
  "once_cell",
@@ -2092,7 +2086,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b244ef0a8414da0bed4bb1910426e890b19e5e9bccc27ada6b797d05c55ae0aa"
 dependencies = [
  "atoi",
- "chrono",
  "flume",
  "futures-channel",
  "futures-core",
