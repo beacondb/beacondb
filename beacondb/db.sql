@@ -4,7 +4,7 @@ create table cell (
     network integer not null,
     area integer not null,
     cell integer not null,
-    unit integer,
+    unit integer not null,
 
     lon real not null,
     lat real not null,

@@ -13,7 +13,7 @@ enum CellRadio {
 #[derive(Debug, Serialize)]
 struct CellAreaTower {
     cell: i64,
-    unit: Option<i64>,
+    unit: i64,
     lon: f64,
     lat: f64,
     range: f64,
