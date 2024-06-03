@@ -58,7 +58,14 @@ pub async fn service(
         .context("writing to database failed")
         .map_err(ErrorInternalServerError)?;
 
-    Ok(HttpResponse::new(StatusCode::ACCEPTED))
+    // https://github.com/zamojski/TowerCollector/pull/225
+    let tower_collector = ua.is_some_and(|x| x == "okhttp/4.12.0");
+    let status = if tower_collector {
+        StatusCode::OK
+    } else {
+        StatusCode::ACCEPTED
+    };
+    Ok(HttpResponse::new(status))
 }
 
 async fn insert(
