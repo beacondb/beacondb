@@ -19,8 +19,11 @@
       in
       {
         packages.default = craneLib.buildPackage {
+          pname = "beacondb";
+          version = "0.1.0";
+
           src = lib.cleanSourceWith {
-            src = craneLib.path ./beacondb-api;
+            src = craneLib.path ./.;
             filter = path: type:
               lib.hasInfix "/.sqlx" path
               || craneLib.filterCargoSources path type;
