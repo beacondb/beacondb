@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update geosubmission set status = 0 where id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "58c32c9efd6cc2d127f6d0ca85a95d0d2886d949e708eb003794a3108c4f9fc6"
+}

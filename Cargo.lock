@@ -378,6 +378,8 @@ dependencies = [
  "clap",
  "csv",
  "dotenvy",
+ "geo",
+ "mac_address",
  "rusqlite",
  "serde",
  "serde_json",

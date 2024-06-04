@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "select cell, unit, lon, lat, range, created, updated from cell where radio = ?1 and country = ?2 and network = ?3 and area = ?4",
+  "query": "select cell, unit, x, y, r from cell where radio = ?1 and country = ?2 and network = ?3 and area = ?4",
   "describe": {
     "columns": [
       {
@@ -14,29 +14,19 @@
         "type_info": "Int64"
       },
       {
-        "name": "lon",
+        "name": "x",
         "ordinal": 2,
         "type_info": "Float"
       },
       {
-        "name": "lat",
+        "name": "y",
         "ordinal": 3,
         "type_info": "Float"
       },
       {
-        "name": "range",
+        "name": "r",
         "ordinal": 4,
         "type_info": "Float"
-      },
-      {
-        "name": "created",
-        "ordinal": 5,
-        "type_info": "Int64"
-      },
-      {
-        "name": "updated",
-        "ordinal": 6,
-        "type_info": "Int64"
       }
     ],
     "parameters": {
@@ -47,10 +37,8 @@
       false,
       false,
       false,
-      false,
-      false,
       false
     ]
   },
-  "hash": "fd6efa0eb1725d36402398bf967edb21105483ff6ae07089cf028b13c472317a"
+  "hash": "7cded1c623ec456526e22c260d4388c2bee844a833609d560984367c8a071bc9"
 }

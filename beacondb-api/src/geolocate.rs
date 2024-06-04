@@ -1,7 +1,7 @@
 use actix_web::{error::ErrorInternalServerError, post, web, HttpResponse};
 use mac_address::MacAddress;
 use serde::{Deserialize, Serialize};
-use sqlx::{query, PgPool};
+use sqlx::{query, SqlitePool};
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -50,7 +50,7 @@ struct Location {
 #[post("/v1/geolocate")]
 pub async fn service(
     data: web::Json<LocationRequest>,
-    pool: web::Data<PgPool>,
+    pool: web::Data<SqlitePool>,
 ) -> actix_web::Result<HttpResponse> {
     let data = data.into_inner();
     let pool = pool.into_inner();
@@ -61,12 +61,24 @@ pub async fn service(
             RadioType::Wcdma => 1,
             RadioType::Lte => 2,
         };
-        dbg!(&x);
-        let row = query!("select x, y, r from cell where radio = $1 and country = $2 and network = $3 and area = $4 and cell = $5 and unit = $6",
+        let row = query!("select x, y, r from cell where radio = ?1 and country = ?2 and network = ?3 and area = ?4 and cell = ?5 and unit = ?6",
             radio, x.mobile_country_code, x.mobile_network_code, x.location_area_code, x.cell_id, x.psc
         ).fetch_optional(&*pool).await.map_err(ErrorInternalServerError)?;
         if let Some(row) = row {
-            dbg!(&row);
+            return Ok(HttpResponse::Ok().json(LocationResponse {
+                location: Location {
+                    lat: row.y,
+                    lng: row.x,
+                },
+                accuracy: row.r,
+            }));
+        }
+
+        // fallback to MLS if beaconDB does not know of this cell tower
+        let row = query!("select x, y, r from cell_mls where radio = ?1 and country = ?2 and network = ?3 and area = ?4 and cell = ?5 and unit = ?6",
+            radio, x.mobile_country_code, x.mobile_network_code, x.location_area_code, x.cell_id, x.psc
+        ).fetch_optional(&*pool).await.map_err(ErrorInternalServerError)?;
+        if let Some(row) = row {
             return Ok(HttpResponse::Ok().json(LocationResponse {
                 location: Location {
                     lat: row.y,
@@ -77,32 +89,49 @@ pub async fn service(
         }
     }
 
-    // TODO: come up with a useful estimation algorithm
-    // let mut count = 0;
-    // let mut xs = 0.0;
-    // let mut ys = 0.0;
-    // for x in data.wifi_access_points {
-    //     let w = query!("select x,y,r from wifi where bssid = $1", x.mac_address)
-    //         .fetch_optional(&*pool)
-    //         .await
-    //         .map_err(ErrorInternalServerError)?;
-    //     if let Some(w) = w {
-    //         println!("{} {} {}", x.mac_address, w.x, w.y);
-    //         count += 1;
-    //         xs += w.x;
-    //         ys += w.y;
-    //     }
-    // }
+    let mut points = Vec::new();
+    for x in data.wifi_access_points {
+        let bssid = x.mac_address.to_string().to_lowercase();
+        let w = query!("select x,y,r from wifi where bssid = $1", bssid)
+            .fetch_optional(&*pool)
+            .await
+            .map_err(ErrorInternalServerError)?;
+        if let Some(w) = w {
+            println!("{} {} {} {}", x.mac_address, w.x, w.y, w.r);
+            points.push(w);
+        }
+    }
 
-    // if count == 0 {
-    return Ok(HttpResponse::NotFound().into());
-    // } else {
-    //     let lng = xs / count as f64;
-    //     let lat = ys / count as f64;
-    //     println!("https://openstreetmap.org/search?query={lat}%2C{lng}");
-    //     Ok(HttpResponse::Ok().json(LocationResponse {
-    //         location: Location { lat, lng },
-    //         accuracy: 12.3,
-    //     }))
-    // }
+    if points.is_empty() {
+        return Ok(HttpResponse::NotFound().into());
+    } else {
+        // pretty basic algorithm - average access point location weighted by observed access point range
+
+        let mut lng = 0.0;
+        let mut lat = 0.0;
+        let mut accuracy = 0.0;
+        let mut weights = 0.0;
+        for record in points {
+            if record.r < 1.0 {
+                continue;
+            }
+
+            let weight = 1.0 / record.r;
+            lng += record.x * weight;
+            lat += record.y * weight;
+            accuracy += record.r * weight;
+            weights += weight;
+        }
+        lng /= weights;
+        lat /= weights;
+        accuracy /= weights;
+
+        let resp = LocationResponse {
+            location: Location { lat, lng },
+            accuracy,
+        };
+        // println!("https://openstreetmap.org/search?query={lat}%2C{lng}");
+        // dbg!(&resp);
+        Ok(HttpResponse::Ok().json(resp))
+    }
 }

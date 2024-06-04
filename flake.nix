@@ -26,6 +26,7 @@
             src = craneLib.path ./.;
             filter = path: type:
               lib.hasInfix "/.sqlx" path
+              || lib.hasSuffix ".sql" path
               || craneLib.filterCargoSources path type;
           };
         };

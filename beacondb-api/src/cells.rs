@@ -14,11 +14,11 @@ enum CellRadio {
 struct CellAreaTower {
     cell: i64,
     unit: i64,
-    lon: f64,
-    lat: f64,
-    range: f64,
-    created: i64,
-    updated: i64,
+    x: f64,
+    y: f64,
+    r: f64,
+    // created: i64,
+    // updated: i64,
 }
 
 #[derive(Debug, Deserialize)]
@@ -38,12 +38,12 @@ pub async fn cell_area(
 
     let r = radio as u8;
     let updated = q.since as i64;
-    let cells = query_as!(CellAreaTower, "select cell, unit, lon, lat, range, created, updated from cell where radio = ?1 and country = ?2 and network = ?3 and area = ?4 and updated >= ?5",
+    let cells = query_as!(CellAreaTower, "select cell, unit, x, y, r from cell where radio = ?1 and country = ?2 and network = ?3 and area = ?4",
         r,
         country,
         network,
         area,
-        updated
+        // updated
     ).fetch_all(&*pool).await.map_err(ErrorInternalServerError)?;
 
     if cells.is_empty() {

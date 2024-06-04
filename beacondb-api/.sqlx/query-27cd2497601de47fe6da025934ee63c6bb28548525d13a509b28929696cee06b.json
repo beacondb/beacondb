@@ -1,0 +1,32 @@
+{
+  "db_name": "SQLite",
+  "query": "select x,y,r from wifi where bssid = $1",
+  "describe": {
+    "columns": [
+      {
+        "name": "x",
+        "ordinal": 0,
+        "type_info": "Float"
+      },
+      {
+        "name": "y",
+        "ordinal": 1,
+        "type_info": "Float"
+      },
+      {
+        "name": "r",
+        "ordinal": 2,
+        "type_info": "Float"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "27cd2497601de47fe6da025934ee63c6bb28548525d13a509b28929696cee06b"
+}

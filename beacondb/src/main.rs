@@ -4,8 +4,10 @@ use clap::{Parser, Subcommand};
 use rusqlite::Connection;
 use sqlx::PgPool;
 
+mod bounds;
 mod geosubmit;
 mod mls;
+mod process;
 
 #[derive(Debug, Parser)]
 struct Cli {
@@ -33,6 +35,7 @@ async fn main() -> Result<()> {
     match cli.command {
         Command::Listen { port } => {
             let pool = PgPool::connect(&dotenvy::var("DATABASE_URL")?).await?;
+            sqlx::migrate!().run(&pool).await?;
 
             HttpServer::new(move || {
                 App::new()
@@ -44,13 +47,18 @@ async fn main() -> Result<()> {
             .run()
             .await?;
         }
-        _ => todo!(),
+        Command::ImportMls => {
+            let mut conn = Connection::open("./beacon.db")?;
+            conn.execute_batch(include_str!("../db.sql"))?;
+            mls::import(&mut conn)?;
+        }
+        Command::Process => {
+            let mut conn = Connection::open("./beacon.db")?;
+            conn.execute_batch(include_str!("../db.sql"))?;
+            let pool = PgPool::connect(&dotenvy::var("DATABASE_URL")?).await?;
+            process::main(pool, &mut conn).await?;
+        }
     }
-
-    // let mut conn = Connection::open("./beacon.db")?;
-    // conn.execute_batch(include_str!("../db.sql"))?;
-
-    // mls::main(&mut conn)?;
 
     Ok(())
 }

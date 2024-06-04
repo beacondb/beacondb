@@ -3,6 +3,7 @@ use clap::Parser;
 use sqlx::{sqlite::SqliteConnectOptions, SqlitePool};
 
 mod cells;
+mod geolocate;
 
 #[derive(Debug, Parser)]
 struct Cli {
@@ -30,6 +31,7 @@ async fn main() -> anyhow::Result<()> {
         App::new()
             .app_data(web::Data::new(pool.clone()))
             .service(cells::cell_area)
+            .service(geolocate::service)
     })
     .bind(("0.0.0.0", cli.port.unwrap_or(8080)))?
     .run()
