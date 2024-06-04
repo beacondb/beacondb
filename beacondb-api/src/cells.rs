@@ -21,24 +21,33 @@ struct CellAreaTower {
     updated: i64,
 }
 
+#[derive(Debug, Deserialize)]
+struct QueryOptions {
+    #[serde(default)]
+    since: u64,
+}
+
 #[get("/v0/cells/{radio}/{country}/{network}/{area}")]
 pub async fn cell_area(
     path: web::Path<(CellRadio, u16, u16, u32)>,
+    web::Query(q): web::Query<QueryOptions>,
     pool: web::Data<SqlitePool>,
 ) -> Result<HttpResponse> {
     let (radio, country, network, area) = path.into_inner();
     let pool = pool.into_inner();
 
     let r = radio as u8;
-    let cells = query_as!(CellAreaTower, "select cell, unit, lon, lat, range, created, updated from cell where radio = ?1 and country = ?2 and network = ?3 and area = ?4",
+    let updated = q.since as i64;
+    let cells = query_as!(CellAreaTower, "select cell, unit, lon, lat, range, created, updated from cell where radio = ?1 and country = ?2 and network = ?3 and area = ?4 and updated >= ?5",
         r,
         country,
         network,
-        area
+        area,
+        updated
     ).fetch_all(&*pool).await.map_err(ErrorInternalServerError)?;
 
     if cells.is_empty() {
-        Ok(HttpResponse::NotFound().body("your request was well-formed but no records were found"))
+        Ok(HttpResponse::NoContent().into())
     } else {
         let mut csv = csv::Writer::from_writer(Vec::new());
         for cell in cells {
