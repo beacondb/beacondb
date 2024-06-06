@@ -6,7 +6,9 @@ use sqlx::{query, SqlitePool};
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct LocationRequest {
+    #[serde(default)]
     cell_towers: Vec<CellTower>,
+    #[serde(default)]
     wifi_access_points: Vec<AccessPoint>,
 }
 
