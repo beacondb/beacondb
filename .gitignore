@@ -3,4 +3,3 @@ result*
 *.db
 
 .env
-!/beacondb-api/.env

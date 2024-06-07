@@ -1,7 +1,6 @@
 use std::io;
 
 use anyhow::Result;
-use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -28,7 +27,8 @@ enum RadioType {
     Lte,
 }
 
-pub fn import(conn: &mut Connection) -> Result<()> {
+pub fn import() -> Result<()> {
+    let mut conn = crate::db::public()?;
     let tx = conn.transaction()?;
     {
         let mut stmt = tx.prepare("insert into cell_mls (radio, country, network, area, cell, unit, x, y, r) values (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)")?;

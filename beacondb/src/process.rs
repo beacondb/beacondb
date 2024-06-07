@@ -2,9 +2,9 @@ use std::collections::BTreeMap;
 
 use anyhow::{Context, Result};
 use mac_address::MacAddress;
-use rusqlite::{Connection, OptionalExtension};
+use rusqlite::OptionalExtension;
 use serde::Deserialize;
-use sqlx::{query, PgPool};
+use sqlx::query;
 
 use crate::bounds::Bounds;
 
@@ -69,7 +69,10 @@ enum Beacon {
     },
 }
 
-pub async fn main(pool: PgPool, conn: &mut Connection) -> Result<()> {
+pub async fn run() -> Result<()> {
+    let pool = crate::db::parallel().await?;
+    let mut conn = crate::db::internal()?;
+
     // TODO: probably dont fetch every single one at once
     let batch = query!("select id, raw from geosubmission where status = 1")
         .fetch_all(&pool)
