@@ -1,6 +1,8 @@
 use std::collections::BTreeMap;
 
 use anyhow::{Context, Result};
+use geo::Point;
+use libbeacondb::KnownBeacon;
 use mac_address::MacAddress;
 use rusqlite::OptionalExtension;
 use serde::Deserialize;
@@ -65,7 +67,6 @@ enum Beacon {
     },
     Wifi {
         bssid: MacAddress,
-        ssid: String,
     },
 }
 
@@ -77,6 +78,8 @@ pub async fn run() -> Result<()> {
     let batch = query!("select id, raw from geosubmission where status = 1")
         .fetch_all(&pool)
         .await?;
+    eprintln!("Processing {} submissions...", batch.len());
+
     let mut tx = pool.begin().await?;
     let mut bounds: BTreeMap<Beacon, Bounds> = BTreeMap::new();
     for report in batch {
@@ -115,11 +118,9 @@ pub async fn run() -> Result<()> {
                 .ssid
                 .map(|x| x.replace('\0', ""))
                 .filter(|x| !x.is_empty());
-            // ignoring hidden networks for now
-            if let Some(ssid) = ssid {
+            if ssid.is_some_and(|x| !x.contains("_nomap") && !x.contains("_output")) {
                 beacons.push(Beacon::Wifi {
                     bssid: wifi.mac_address,
-                    ssid,
                 });
             }
         }
@@ -156,7 +157,7 @@ pub async fn run() -> Result<()> {
                     let bounds = existing + v;
                     let (x, y, r) = bounds.x_y_r();
                     lite_tx.execute(
-                        "update cell set x = ?1, y = ?2, r = ?3 where radio = ?4 and country = ?5 and network = ?6 and area = ?7 and cell = ?8 and unit = ?9",
+                        "update cell set x = ?1, y = ?2, r = ?3, days_seen = days_seen + ((unixepoch() - last_seen) > 86400), last_seen = unixepoch() where radio = ?4 and country = ?5 and network = ?6 and area = ?7 and cell = ?8 and unit = ?9",
                         ( x, y, r, radio as u8, country, network, area, cell, unit)
                     )?;
                 } else {
@@ -167,28 +168,40 @@ pub async fn run() -> Result<()> {
                     )?;
                 }
             }
-            Beacon::Wifi { bssid, ssid: _ } => {
-                let bssid = bssid.to_string().to_lowercase();
+            Beacon::Wifi { bssid } => {
+                // this should be done on the client
+                let beacon = KnownBeacon::new(bssid.bytes());
+                let (key, secret) = (beacon.key(), beacon.secret());
+
                 let existing = lite_tx
                     .query_row(
-                        "select x, y, r from wifi where bssid = ?1",
-                        (&bssid,),
-                        |row| Ok(Bounds::new(row.get(0)?, row.get(1)?, row.get(2)?)),
+                        "select x, y, r from wifi where key = ?1 and secret = ?2",
+                        (key, secret),
+                        |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
                     )
                     .optional()?;
 
-                if let Some(existing) = existing {
+                if let Some((x, y, r)) = existing {
+                    // TODO: move bounds to lib and cleanup
+                    let existing = Point::new(x, y);
+                    let (x, y) = beacon.remove_offset(existing).x_y();
+                    let existing = Bounds::new(x, y, r);
                     let bounds = existing + v;
                     let (x, y, r) = bounds.x_y_r();
+                    let p = Point::new(x, y);
+                    let (x, y) = beacon.add_offset(p).x_y();
+
                     lite_tx.execute(
-                        "update wifi set x = ?1, y = ?2, r = ?3 where bssid = ?4",
-                        (x, y, r, bssid),
+                        "update wifi set x = ?1, y = ?2, r = ?3, days_seen = days_seen + ((unixepoch() - last_seen) > 86400), last_seen = unixepoch() where key = ?4 and secret = ?5",
+                        (x, y, r, key, secret),
                     )?;
                 } else {
                     let (x, y, r) = v.x_y_r();
+                    let p = Point::new(x, y);
+                    let (x, y) = beacon.add_offset(p).x_y();
                     lite_tx.execute(
-                        "insert into wifi (bssid, x, y, r) values (?1, ?2, ?3, ?4)",
-                        (bssid, x, y, r),
+                        "insert into wifi (key, secret, x, y, r) values (?1, ?2, ?3, ?4, ?5)",
+                        (key, secret, x, y, r),
                     )?;
                 }
             }

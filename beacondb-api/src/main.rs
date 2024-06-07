@@ -21,7 +21,7 @@ async fn main() -> anyhow::Result<()> {
             .filename(
                 cli.database_path
                     .as_deref()
-                    .unwrap_or("../beacondb/beacon.db"),
+                    .unwrap_or("../beacondb/public.db"),
             )
             .read_only(true),
     )

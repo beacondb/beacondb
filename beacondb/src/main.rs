@@ -1,14 +1,13 @@
 use actix_web::{web, App, HttpServer};
 use anyhow::Result;
 use clap::{Parser, Subcommand};
-use rusqlite::Connection;
-use sqlx::PgPool;
 
 mod bounds;
 mod db;
 mod geosubmit;
 mod mls;
 mod process;
+mod sync;
 
 #[derive(Debug, Parser)]
 struct Cli {
@@ -27,6 +26,7 @@ enum Command {
     },
     ImportMls,
     Process,
+    Sync,
 }
 
 #[tokio::main]
@@ -50,6 +50,7 @@ async fn main() -> Result<()> {
 
         Command::ImportMls => mls::import()?,
         Command::Process => process::run().await?,
+        Command::Sync => sync::run()?,
     }
 
     Ok(())

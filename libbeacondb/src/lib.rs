@@ -1,6 +1,8 @@
 use geo::{HaversineDestination, Point};
 use sha2::{Digest, Sha256};
 
+pub mod model;
+
 pub const SALT: [u8; 2] = [0xbc, 0xdb];
 pub const MAX_OFFSET: f64 = 10_000.0; // 10km
 
@@ -45,7 +47,6 @@ impl KnownBeacon {
     fn offset(&self) -> (f64, f64) {
         let x = self.x_offset as f64 / 2.0f64.powi(32) * MAX_OFFSET;
         let y = self.y_offset as f64 / 2.0f64.powi(32) * MAX_OFFSET;
-        dbg!(x, y);
         (x, y)
     }
 

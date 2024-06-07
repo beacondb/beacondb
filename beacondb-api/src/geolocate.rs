@@ -1,4 +1,6 @@
 use actix_web::{error::ErrorInternalServerError, post, web, HttpResponse};
+use geo::Point;
+use libbeacondb::KnownBeacon;
 use mac_address::MacAddress;
 use serde::{Deserialize, Serialize};
 use sqlx::{query, SqlitePool};
@@ -58,30 +60,34 @@ pub async fn service(
     let pool = pool.into_inner();
 
     let mut points = Vec::new();
-    for x in data.wifi_access_points {
-        let bssid = x.mac_address.to_string().to_lowercase();
-        let w = query!("select x,y,r from wifi where bssid = $1", bssid)
-            .fetch_optional(&*pool)
+    for ap in data.wifi_access_points {
+        let beacon = KnownBeacon::new(ap.mac_address.bytes());
+        let key = beacon.key();
+        let w = query!("select x,y,r from wifi where key = $1", key)
+            .fetch_all(&*pool)
             .await
             .map_err(ErrorInternalServerError)?;
-        if let Some(w) = w {
+        for w in w {
+            let (x, y) = beacon.remove_offset(Point::new(w.x, w.y)).x_y();
             if w.r > 1.0 {
-                points.push(w);
+                println!("{x},{y},{},{}", w.r, ap.mac_address);
+                points.push((x, y, w.r));
             }
         }
     }
 
     if !points.is_empty() {
         // pretty basic algorithm - average access point location weighted by observed access point range
+        // TODO: this doesn't work at all unless you get only unique keys by chance
         let mut lng = 0.0;
         let mut lat = 0.0;
         let mut accuracy = 0.0;
         let mut weights = 0.0;
-        for record in points {
-            let weight = 1.0 / record.r;
-            lng += record.x * weight;
-            lat += record.y * weight;
-            accuracy += record.r * weight;
+        for (x, y, r) in points {
+            let weight = 1.0 / r;
+            lng += x * weight;
+            lat += y * weight;
+            accuracy += r * weight;
             weights += weight;
         }
         lng /= weights;
@@ -92,8 +98,8 @@ pub async fn service(
             location: Location { lat, lng },
             accuracy,
         };
-        // println!("https://openstreetmap.org/search?query={lat}%2C{lng}");
-        // dbg!(&resp);
+        println!("https://openstreetmap.org/search?query={lat}%2C{lng}");
+        dbg!(&resp);
         return Ok(HttpResponse::Ok().json(resp));
     }
 
