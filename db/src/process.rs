@@ -35,6 +35,7 @@ struct Cell {
     mobile_network_code: u16,
     #[serde(default)]
     location_area_code: u32,
+    #[serde(default)]
     cell_id: u64,
     primary_scrambling_code: Option<u16>,
 }
@@ -97,8 +98,9 @@ pub async fn run() -> Result<()> {
         let mut beacons = Vec::new();
         for cell in parsed.cell_towers {
             if cell.mobile_country_code == 0
-                || cell.mobile_network_code == 0
+                // || cell.mobile_network_code == 0 // this is valid
                 || cell.location_area_code == 0
+                || cell.cell_id == 0
             {
                 // TODO: reuse previous cell tower data
                 continue;
