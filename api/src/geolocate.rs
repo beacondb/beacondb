@@ -1,6 +1,6 @@
 use actix_web::{error::ErrorInternalServerError, post, web, HttpResponse};
+use beacondb::KnownBeacon;
 use geo::Point;
-use libbeacondb::KnownBeacon;
 use mac_address::MacAddress;
 use serde::{Deserialize, Serialize};
 use sqlx::{query, SqlitePool};

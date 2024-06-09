@@ -1,8 +1,8 @@
 use std::collections::BTreeMap;
 
 use anyhow::{Context, Result};
+use beacondb::KnownBeacon;
 use geo::Point;
-use libbeacondb::KnownBeacon;
 use mac_address::MacAddress;
 use rusqlite::OptionalExtension;
 use serde::Deserialize;

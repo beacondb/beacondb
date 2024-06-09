@@ -373,19 +373,8 @@ checksum = "8c3c1a368f70d6cf7302d78f8f7093da241fb8e8807c05cc9e51a125895a6d5b"
 name = "beacondb"
 version = "0.1.0"
 dependencies = [
- "actix-web",
- "anyhow",
- "clap",
- "csv",
- "dotenvy",
  "geo",
- "libbeacondb",
- "mac_address",
- "rusqlite",
- "serde",
- "serde_json",
- "sqlx",
- "tokio",
+ "sha2",
 ]
 
 [[package]]
@@ -394,15 +383,34 @@ version = "0.1.0"
 dependencies = [
  "actix-web",
  "anyhow",
+ "beacondb",
  "chrono",
  "clap",
  "csv",
  "dotenvy",
  "geo",
- "libbeacondb",
  "mac_address",
  "maud",
  "serde",
+ "sqlx",
+ "tokio",
+]
+
+[[package]]
+name = "beacondb-db"
+version = "0.1.0"
+dependencies = [
+ "actix-web",
+ "anyhow",
+ "beacondb",
+ "clap",
+ "csv",
+ "dotenvy",
+ "geo",
+ "mac_address",
+ "rusqlite",
+ "serde",
+ "serde_json",
  "sqlx",
  "tokio",
 ]
@@ -1227,14 +1235,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e2abad23fbc42b3700f2f279844dc832adb2b2eb069b2df918f455c4e18cc646"
 dependencies = [
  "spin 0.5.2",
-]
-
-[[package]]
-name = "libbeacondb"
-version = "0.1.0"
-dependencies = [
- "geo",
- "sha2",
 ]
 
 [[package]]

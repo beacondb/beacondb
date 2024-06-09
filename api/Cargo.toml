@@ -17,4 +17,4 @@ serde = { version = "1.0.202", features = ["derive"] }
 sqlx = { git = "https://github.com/launchbadge/sqlx.git", rev = "352b02de6af70f1ff1bfbd15329120589a0f7337", features = ["sqlite", "runtime-tokio"] }
 tokio = { version = "1.37.0", features = ["full"] }
 
-libbeacondb = { path = "../libbeacondb" }
+beacondb = { path = "../lib" }

@@ -1,7 +1,7 @@
 use std::borrow::BorrowMut;
 
 use anyhow::{bail, Result};
-use libbeacondb::model::{Cell, RadioType, Wifi};
+use beacondb::model::{Cell, RadioType, Wifi};
 
 pub fn run() -> Result<()> {
     let internal = crate::db::internal()?;
