@@ -59,49 +59,49 @@ pub async fn service(
     let data = data.into_inner();
     let pool = pool.into_inner();
 
-    let mut points = Vec::new();
-    for ap in data.wifi_access_points {
-        let beacon = KnownBeacon::new(ap.mac_address.bytes());
-        let key = beacon.key();
-        let w = query!("select x,y,r from wifi where key = $1", key)
-            .fetch_all(&*pool)
-            .await
-            .map_err(ErrorInternalServerError)?;
-        for w in w {
-            let (x, y) = beacon.remove_offset(Point::new(w.x, w.y)).x_y();
-            if w.r > 1.0 {
-                println!("{x},{y},{},{}", w.r, ap.mac_address);
-                points.push((x, y, w.r));
-            }
-        }
-    }
+    // let mut points = Vec::new();
+    // for ap in data.wifi_access_points {
+    //     let beacon = KnownBeacon::new(ap.mac_address.bytes());
+    //     let key = beacon.key();
+    //     let w = query!("select x,y,r from wifi where key = $1", key)
+    //         .fetch_all(&*pool)
+    //         .await
+    //         .map_err(ErrorInternalServerError)?;
+    //     for w in w {
+    //         let (x, y) = beacon.remove_offset(Point::new(w.x, w.y)).x_y();
+    //         if w.r > 1.0 {
+    //             println!("{x},{y},{},{}", w.r, ap.mac_address);
+    //             points.push((x, y, w.r));
+    //         }
+    //     }
+    // }
 
-    if !points.is_empty() {
-        // pretty basic algorithm - average access point location weighted by observed access point range
-        // TODO: this doesn't work at all unless you get only unique keys by chance
-        let mut lng = 0.0;
-        let mut lat = 0.0;
-        let mut accuracy = 0.0;
-        let mut weights = 0.0;
-        for (x, y, r) in points {
-            let weight = 1.0 / r;
-            lng += x * weight;
-            lat += y * weight;
-            accuracy += r * weight;
-            weights += weight;
-        }
-        lng /= weights;
-        lat /= weights;
-        accuracy /= weights;
+    // if !points.is_empty() {
+    //     // pretty basic algorithm - average access point location weighted by observed access point range
+    //     // TODO: this doesn't work at all unless you get only unique keys by chance
+    //     let mut lng = 0.0;
+    //     let mut lat = 0.0;
+    //     let mut accuracy = 0.0;
+    //     let mut weights = 0.0;
+    //     for (x, y, r) in points {
+    //         let weight = 1.0 / r;
+    //         lng += x * weight;
+    //         lat += y * weight;
+    //         accuracy += r * weight;
+    //         weights += weight;
+    //     }
+    //     lng /= weights;
+    //     lat /= weights;
+    //     accuracy /= weights;
 
-        let resp = LocationResponse {
-            location: Location { lat, lng },
-            accuracy,
-        };
-        println!("https://openstreetmap.org/search?query={lat}%2C{lng}");
-        dbg!(&resp);
-        return Ok(HttpResponse::Ok().json(resp));
-    }
+    //     let resp = LocationResponse {
+    //         location: Location { lat, lng },
+    //         accuracy,
+    //     };
+    //     println!("https://openstreetmap.org/search?query={lat}%2C{lng}");
+    //     dbg!(&resp);
+    //     return Ok(HttpResponse::Ok().json(resp));
+    // }
 
     for x in data.cell_towers {
         let radio = match x.radio_type {
