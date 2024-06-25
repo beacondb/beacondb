@@ -1,0 +1,52 @@
+_nomap
+_optout
+
+phone
+iphone
+androidap
+samsung
+galaxy
+moto
+oneplus
+oppo
+pixel
+poco
+realme
+redmi
+roamingman
+tecno
+vivo
+
+androidauto
+audi
+bmw
+carplay
+hyundai
+keeptruckin
+kia
+incarhotspot
+porsche
+mazda
+mbux
+mb hotspot
+mb wlan
+mycadillac
+mycar
+mychevrolet
+mygmc
+my seat
+my skoda
+my vw
+renault
+skoda
+
+dashcam
+blackvue
+dashview
+ghdvr
+igocam
+midashcam
+mivue
+mydean
+navman
+thinkware
