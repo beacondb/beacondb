@@ -111,7 +111,7 @@ pub async fn service(
         latw /= ww;
         lonw /= ww;
         rw /= ww;
-        return Ok(HttpResponse::Ok().json(LocationResponse::new(latw, lonw, rw.min(50.0))));
+        return Ok(HttpResponse::Ok().json(LocationResponse::new(latw, lonw, rw.max(50.0))));
     }
 
     for x in data.cell_towers {
