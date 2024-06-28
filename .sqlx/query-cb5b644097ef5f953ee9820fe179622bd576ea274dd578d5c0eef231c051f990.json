@@ -1,0 +1,12 @@
+{
+  "db_name": "MySQL",
+  "query": "replace into cell (radio, country, network, area, cell, unit, min_lat, min_lon, max_lat, max_lon) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 10
+    },
+    "nullable": []
+  },
+  "hash": "cb5b644097ef5f953ee9820fe179622bd576ea274dd578d5c0eef231c051f990"
+}

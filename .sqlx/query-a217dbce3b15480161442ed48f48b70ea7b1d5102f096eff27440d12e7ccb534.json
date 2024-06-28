@@ -1,0 +1,58 @@
+{
+  "db_name": "MySQL",
+  "query": "select min_lat, min_lon, max_lat, max_lon from wifi where mac = ?",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "min_lat",
+        "type_info": {
+          "type": "Double",
+          "flags": "NOT_NULL | NO_DEFAULT_VALUE",
+          "char_set": 63,
+          "max_size": 22
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "min_lon",
+        "type_info": {
+          "type": "Double",
+          "flags": "NOT_NULL | NO_DEFAULT_VALUE",
+          "char_set": 63,
+          "max_size": 22
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "max_lat",
+        "type_info": {
+          "type": "Double",
+          "flags": "NOT_NULL | NO_DEFAULT_VALUE",
+          "char_set": 63,
+          "max_size": 22
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "max_lon",
+        "type_info": {
+          "type": "Double",
+          "flags": "NOT_NULL | NO_DEFAULT_VALUE",
+          "char_set": 63,
+          "max_size": 22
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "a217dbce3b15480161442ed48f48b70ea7b1d5102f096eff27440d12e7ccb534"
+}

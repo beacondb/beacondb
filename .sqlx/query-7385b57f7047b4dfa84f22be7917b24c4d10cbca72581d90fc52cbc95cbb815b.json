@@ -1,0 +1,12 @@
+{
+  "db_name": "MySQL",
+  "query": "replace into bluetooth (mac, min_lat, min_lon, max_lat, max_lon) values (?, ?, ?, ?, ?)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 5
+    },
+    "nullable": []
+  },
+  "hash": "7385b57f7047b4dfa84f22be7917b24c4d10cbca72581d90fc52cbc95cbb815b"
+}

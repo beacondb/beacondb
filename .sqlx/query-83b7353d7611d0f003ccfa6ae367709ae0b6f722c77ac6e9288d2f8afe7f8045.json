@@ -1,0 +1,12 @@
+{
+  "db_name": "MySQL",
+  "query": "insert ignore into submission (timestamp, latitude, longitude, user_agent, raw) values (?, ?, ?, ?, ?)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 5
+    },
+    "nullable": []
+  },
+  "hash": "83b7353d7611d0f003ccfa6ae367709ae0b6f722c77ac6e9288d2f8afe7f8045"
+}

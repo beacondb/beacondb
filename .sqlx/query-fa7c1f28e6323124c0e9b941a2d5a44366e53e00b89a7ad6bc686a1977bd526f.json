@@ -1,0 +1,12 @@
+{
+  "db_name": "MySQL",
+  "query": "replace into wifi (mac, min_lat, min_lon, max_lat, max_lon) values (?, ?, ?, ?, ?)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 5
+    },
+    "nullable": []
+  },
+  "hash": "fa7c1f28e6323124c0e9b941a2d5a44366e53e00b89a7ad6bc686a1977bd526f"
+}

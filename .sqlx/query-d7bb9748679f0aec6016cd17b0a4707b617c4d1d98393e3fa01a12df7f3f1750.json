@@ -1,0 +1,25 @@
+{
+  "db_name": "MySQL",
+  "query": "select count(*) as count from submission where processed_at is null",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "count",
+        "type_info": {
+          "type": "LongLong",
+          "flags": "NOT_NULL | BINARY",
+          "char_set": 63,
+          "max_size": 21
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "d7bb9748679f0aec6016cd17b0a4707b617c4d1d98393e3fa01a12df7f3f1750"
+}
