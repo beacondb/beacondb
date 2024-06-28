@@ -1,9 +1,8 @@
 use actix_web::{error::ErrorInternalServerError, post, web, HttpResponse};
-use geo::{
-    Area, ChamberlainDuquetteArea, HaversineDestination, HaversineDistance, HaversineIntermediate,
-};
+use geo::HaversineDistance;
 use mac_address::MacAddress;
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 use sqlx::{query, query_as, MySqlPool};
 
 use crate::{bounds::Bounds, model::CellRadio};
@@ -131,5 +130,17 @@ pub async fn service(
         }
     }
 
-    Ok(HttpResponse::NotFound().finish())
+    Ok(HttpResponse::NotFound().json(json!(
+        {
+            "error": {
+                "errors": [{
+                    "domain": "geolocation",
+                    "reason": "notFound",
+                    "message": "No location could be estimated based on the data provided",
+                }],
+                "code": 404,
+                "message": "Not found",
+            }
+        }
+    )))
 }
