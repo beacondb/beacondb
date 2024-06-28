@@ -1,56 +1,56 @@
 use actix_web::{web, App, HttpServer};
 use anyhow::Result;
 use clap::{Parser, Subcommand};
+use sqlx::MySqlPool;
 
+// mod geolocate;
+// mod mls;
 mod bounds;
 mod db;
-mod geosubmit;
-mod mls;
-mod process;
-mod sync;
+mod model;
+mod submission;
+mod tmp;
 
 #[derive(Debug, Parser)]
 struct Cli {
     #[clap(subcommand)]
     command: Command,
-
-    #[arg(short, long)]
-    database_path: Option<String>,
 }
 
 #[derive(Debug, Subcommand)]
 enum Command {
-    /// Accept new submissions over HTTP
-    Listen {
-        port: Option<u16>,
-    },
     ImportMls,
+    Serve { port: Option<u16> },
     Process,
-    Sync,
 }
 
 #[tokio::main]
 async fn main() -> Result<()> {
     let cli = Cli::parse();
 
-    match cli.command {
-        Command::Listen { port } => {
-            let pool = db::parallel().await?;
+    let pool = MySqlPool::connect(&dotenvy::var("DATABASE_URL")?).await?;
+    sqlx::migrate!().run(&pool).await?;
 
+    // tmp::main(pool).await?;
+    // return Ok(());
+
+    match cli.command {
+        Command::Serve { port } => {
             HttpServer::new(move || {
                 App::new()
                     .app_data(web::Data::new(pool.clone()))
                     .app_data(web::JsonConfig::default().limit(50 * 1024 * 1024))
-                    .service(geosubmit::service)
+                    // .service(geolocate::service)
+                    .service(submission::geosubmit::service)
             })
             .bind(("0.0.0.0", port.unwrap_or(8080)))?
             .run()
             .await?;
         }
 
-        Command::ImportMls => mls::import()?,
-        Command::Process => process::run().await?,
-        Command::Sync => sync::run()?,
+        // Command::ImportMls => mls::import(pool).await?,
+        Command::Process => submission::process::run(pool).await?,
+        _ => (),
     }
 
     Ok(())

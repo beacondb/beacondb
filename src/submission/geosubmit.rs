@@ -1,12 +1,13 @@
 use actix_web::{
-    error::{ErrorBadRequest, ErrorInternalServerError},
+    error::ErrorInternalServerError,
     http::{header::USER_AGENT, StatusCode},
     post, web, HttpRequest, HttpResponse, Responder,
 };
 use anyhow::Context;
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use sqlx::{query, PgPool};
+use sqlx::{query, MySqlPool};
 
 // only the bare minimum is parsed here: it is assumed that certain data issues
 // may be due to device manufacturer software, making it difficult for
@@ -22,7 +23,8 @@ struct Submission {
 #[derive(Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct Report {
-    timestamp: u64,
+    #[serde(with = "chrono::serde::ts_milliseconds")]
+    timestamp: DateTime<Utc>,
     position: Position,
     #[serde(flatten)]
     extra: Value,
@@ -39,7 +41,7 @@ struct Position {
 #[post("/v2/geosubmit")]
 pub async fn service(
     data: web::Json<Submission>,
-    pool: web::Data<PgPool>,
+    pool: web::Data<MySqlPool>,
     req: HttpRequest,
 ) -> actix_web::Result<impl Responder> {
     let data = data.into_inner();
@@ -69,15 +71,15 @@ pub async fn service(
 }
 
 async fn insert(
-    pool: &PgPool,
+    pool: &MySqlPool,
     user_agent: Option<&str>,
     submission: Submission,
 ) -> anyhow::Result<()> {
     let mut tx = pool.begin().await?;
 
     for report in submission.items {
-        query!("insert into geosubmission (timestamp, latitude, longitude, user_agent, raw) values ($1, $2, $3, $4, $5) on conflict do nothing",
-            report.timestamp as i64,
+        query!("insert ignore into submission (timestamp, latitude, longitude, user_agent, raw) values (?, ?, ?, ?, ?)",
+            report.timestamp,
             report.position.latitude,
             report.position.longitude,
             user_agent,

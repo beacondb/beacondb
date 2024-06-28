@@ -1,0 +1,38 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select x, y, r from cell where radio = $1 and country = $2 and network = $3 and area = $4 and cell = $5",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "x",
+        "type_info": "Float4"
+      },
+      {
+        "ordinal": 1,
+        "name": "y",
+        "type_info": "Float4"
+      },
+      {
+        "ordinal": 2,
+        "name": "r",
+        "type_info": "Float4"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int2",
+        "Int2",
+        "Int2",
+        "Int4",
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "d2ee74d2d152db4297ab8cf8c264a19af1017674d97535b1c4c54ef902f9c6e0"
+}

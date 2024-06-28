@@ -1,31 +1,45 @@
 use std::ops::Add;
 
-use geo::{HaversineDestination, HaversineDistance, HaversineIntermediate, Point};
+use geo::Point;
+
+// TODO: refactor, this doesn't need to be dependent on the geo library
+// DbBounds should be the same as Bounds
+
+pub struct DbBounds {
+    pub min_lat: f64,
+    pub min_lon: f64,
+    pub max_lat: f64,
+    pub max_lon: f64,
+}
+
+impl From<DbBounds> for Bounds {
+    fn from(value: DbBounds) -> Self {
+        let min = Point::new(value.min_lon, value.min_lat);
+        let max = Point::new(value.max_lon, value.max_lat);
+        Self { min, max }
+    }
+}
 
 #[derive(Debug, Clone, Copy)]
 pub struct Bounds {
-    max: Point,
     min: Point,
+    max: Point,
 }
 
 impl Bounds {
-    pub fn new(x: f64, y: f64, r: f64) -> Self {
-        let c = Point::new(x, y);
-        let max = c.haversine_destination(45.0, r);
-        let min = c.haversine_destination(45.0 + 180.0, r);
+    pub fn new(max: Point, min: Point) -> Self {
         Self { max, min }
     }
 
-    pub fn x_y_r(self) -> (f64, f64, f64) {
-        if self.max == self.min {
-            let (x, y) = self.max.x_y();
-            (x, y, 0.0)
-        } else {
-            let c = self.max.haversine_intermediate(&self.min, 0.5);
-            let r = self.max.haversine_distance(&c);
-            let (x, y) = c.x_y();
-            (x, y, r)
-        }
+    pub fn empty(x: Point) -> Self {
+        Self { max: x, min: x }
+    }
+
+    // TODO: refactor as above, make fields public
+    pub fn values(&self) -> (f64, f64, f64, f64) {
+        let (min_lon, min_lat) = self.min.x_y();
+        let (max_lon, max_lat) = self.max.x_y();
+        (min_lon, min_lat, max_lon, max_lat)
     }
 }
 
