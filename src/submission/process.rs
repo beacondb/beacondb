@@ -1,7 +1,6 @@
 use std::collections::BTreeMap;
 
 use anyhow::{Context, Result};
-use geo::Point;
 use sqlx::{query, query_scalar, MySqlPool};
 
 use crate::{bounds::Bounds, model::Transmitter};
@@ -30,16 +29,14 @@ pub async fn run(pool: MySqlPool) -> Result<()> {
         let (pos, txs) = super::report::extract(&next.raw)
             .with_context(|| format!("Failed to parse report #{}", next.id))?;
 
-        let pos = Point::new(pos.longitude, pos.latitude);
-
         for x in txs {
             if let Some(b) = modified.get_mut(&x) {
-                *b = *b + pos;
+                *b = *b + (pos.latitude, pos.longitude);
             } else {
                 if let Some(b) = x.lookup(&pool).await? {
-                    modified.insert(x, b + pos);
+                    modified.insert(x, b + (pos.latitude, pos.longitude));
                 } else {
-                    modified.insert(x, Bounds::empty(pos));
+                    modified.insert(x, Bounds::new(pos.latitude, pos.longitude));
                 }
             }
         }
@@ -50,8 +47,6 @@ pub async fn run(pool: MySqlPool) -> Result<()> {
 
     println!("writing");
     for (x, b) in modified {
-        let (min_lat, min_lon, max_lat, max_lon) = b.values();
-
         match x {
             Transmitter::Cell {
                 radio,
@@ -63,7 +58,7 @@ pub async fn run(pool: MySqlPool) -> Result<()> {
             } => {
                 query!(
                     "replace into cell (radio, country, network, area, cell, unit, min_lat, min_lon, max_lat, max_lon) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                    radio, country, network, area, cell, unit, min_lat, min_lon, max_lat, max_lon         ,
+                    radio, country, network, area, cell, unit, b.min_lat, b.min_lon, b.max_lat, b.max_lon         ,
                 )
                 .execute(&mut *tx)
                 .await?;
@@ -71,7 +66,7 @@ pub async fn run(pool: MySqlPool) -> Result<()> {
             Transmitter::Wifi { mac } => {
                 query!(
                     "replace into wifi (mac, min_lat, min_lon, max_lat, max_lon) values (?, ?, ?, ?, ?)",
-                    &mac[..], min_lat, min_lon, max_lon, max_lat 
+                    &mac[..], b.min_lat, b.min_lon, b.max_lat, b.max_lon
                 )
                 .execute(&mut *tx)
                 .await?;
@@ -79,7 +74,7 @@ pub async fn run(pool: MySqlPool) -> Result<()> {
             Transmitter::Bluetooth{ mac } => {
                 query!(
                     "replace into bluetooth (mac, min_lat, min_lon, max_lat, max_lon) values (?, ?, ?, ?, ?)",
-                    &mac[..], min_lat, min_lon, max_lon, max_lat 
+                    &mac[..], b.min_lat, b.min_lon, b.max_lat, b.max_lon 
                 )
                 .execute(&mut *tx)
                 .await?;

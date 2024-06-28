@@ -1,6 +1,6 @@
 use sqlx::{query_as, MySqlPool};
 
-use crate::bounds::{Bounds, DbBounds};
+use crate::bounds::Bounds;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Transmitter {
@@ -40,7 +40,7 @@ impl Transmitter {
                 unit,
             } => {
                 query_as!(
-                    DbBounds,
+                    Bounds,
                     "select min_lat, min_lon, max_lat, max_lon from cell where radio = ? and country = ? and network = ? and area = ? and cell = ? and unit = ?",
                     radio,country,network,area,cell,unit
 
@@ -48,7 +48,7 @@ impl Transmitter {
             }
             Transmitter::Wifi { mac } => {
                 query_as!(
-                    DbBounds,
+                    Bounds,
                     "select min_lat, min_lon, max_lat, max_lon from wifi where mac = ?",
                     &mac[..]
                 )
@@ -57,7 +57,7 @@ impl Transmitter {
             }
             Transmitter::Bluetooth { mac } => {
                 query_as!(
-                    DbBounds,
+                    Bounds,
                     "select min_lat, min_lon, max_lat, max_lon from wifi where mac = ?",
                     &mac[..]
                 )

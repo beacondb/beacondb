@@ -9,7 +9,6 @@ mod bounds;
 mod db;
 mod model;
 mod submission;
-mod tmp;
 
 #[derive(Debug, Parser)]
 struct Cli {
@@ -30,9 +29,6 @@ async fn main() -> Result<()> {
 
     let pool = MySqlPool::connect(&dotenvy::var("DATABASE_URL")?).await?;
     sqlx::migrate!().run(&pool).await?;
-
-    // tmp::main(pool).await?;
-    // return Ok(());
 
     match cli.command {
         Command::Serve { port } => {

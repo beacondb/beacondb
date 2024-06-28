@@ -1,88 +1,62 @@
 use std::ops::Add;
 
-use geo::Point;
-
-// TODO: refactor, this doesn't need to be dependent on the geo library
-// DbBounds should be the same as Bounds
-
-pub struct DbBounds {
+#[derive(Clone, Copy)]
+pub struct Bounds {
     pub min_lat: f64,
     pub min_lon: f64,
     pub max_lat: f64,
     pub max_lon: f64,
 }
 
-impl From<DbBounds> for Bounds {
-    fn from(value: DbBounds) -> Self {
-        let min = Point::new(value.min_lon, value.min_lat);
-        let max = Point::new(value.max_lon, value.max_lat);
-        Self { min, max }
-    }
-}
-
-#[derive(Debug, Clone, Copy)]
-pub struct Bounds {
-    min: Point,
-    max: Point,
-}
-
 impl Bounds {
-    pub fn new(max: Point, min: Point) -> Self {
-        Self { max, min }
-    }
-
-    pub fn empty(x: Point) -> Self {
-        Self { max: x, min: x }
-    }
-
-    // TODO: refactor as above, make fields public
-    pub fn values(&self) -> (f64, f64, f64, f64) {
-        let (min_lon, min_lat) = self.min.x_y();
-        let (max_lon, max_lat) = self.max.x_y();
-        (min_lon, min_lat, max_lon, max_lat)
+    pub fn new(lat: f64, lon: f64) -> Self {
+        Self {
+            min_lat: lat,
+            min_lon: lon,
+            max_lat: lat,
+            max_lon: lon,
+        }
     }
 }
 
 impl Add<(f64, f64)> for Bounds {
     type Output = Self;
 
-    fn add(mut self, (x, y): (f64, f64)) -> Self {
-        if x > self.max.x() {
-            self.max.set_x(x);
-        } else if x < self.min.x() {
-            self.min.set_x(x);
+    fn add(mut self, (lat, lon): (f64, f64)) -> Self {
+        if lat < self.min_lat {
+            self.min_lat = lat;
+        } else if lat > self.max_lat {
+            self.max_lat = lat;
         }
-        if y > self.max.y() {
-            self.max.set_y(y);
-        } else if y < self.min.y() {
-            self.min.set_y(y);
+
+        if lon < self.min_lon {
+            self.min_lon = lon;
+        } else if lon > self.max_lon {
+            self.max_lon = lon;
         }
+
         self
     }
 }
 
-impl Add<Point> for Bounds {
-    type Output = Self;
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-    fn add(self, other: Point) -> Self {
-        self + other.x_y()
-    }
-}
+    #[test]
+    fn double_check() {
+        let b = Bounds::new(0.0, 0.0);
 
-impl Add for Bounds {
-    type Output = Self;
+        let b = b + (0.1, 0.1);
+        assert!(b.max_lat > 0.0);
+        assert!(b.max_lon > 0.0);
+        assert!(b.min_lat < 0.1);
+        assert!(b.min_lon < 0.1);
 
-    fn add(mut self, other: Self) -> Self {
-        if other.max.x() > self.max.x() {
-            self.max.set_x(other.max.x());
-        } else if other.min.x() < self.min.x() {
-            self.min.set_x(other.min.x());
-        }
-        if other.max.y() > self.max.y() {
-            self.max.set_y(other.max.y());
-        } else if other.min.y() < self.min.y() {
-            self.min.set_y(other.min.y());
-        }
-        self
+        let b = b + (-0.1, -0.1);
+        assert!(b.max_lat > 0.0);
+        assert!(b.max_lon > 0.0);
+        assert!(b.min_lat < 0.0);
+        assert!(b.min_lon < 0.0);
     }
 }
