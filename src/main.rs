@@ -3,10 +3,10 @@ use anyhow::Result;
 use clap::{Parser, Subcommand};
 use sqlx::MySqlPool;
 
-// mod geolocate;
-// mod mls;
 mod bounds;
 mod db;
+mod geolocate;
+mod mls;
 mod model;
 mod submission;
 
@@ -18,7 +18,7 @@ struct Cli {
 
 #[derive(Debug, Subcommand)]
 enum Command {
-    ImportMls,
+    FormatMls,
     Serve { port: Option<u16> },
     Process,
 }
@@ -36,7 +36,7 @@ async fn main() -> Result<()> {
                 App::new()
                     .app_data(web::Data::new(pool.clone()))
                     .app_data(web::JsonConfig::default().limit(50 * 1024 * 1024))
-                    // .service(geolocate::service)
+                    .service(geolocate::service)
                     .service(submission::geosubmit::service)
             })
             .bind(("0.0.0.0", port.unwrap_or(8080)))?
@@ -44,9 +44,8 @@ async fn main() -> Result<()> {
             .await?;
         }
 
-        // Command::ImportMls => mls::import(pool).await?,
+        Command::FormatMls => mls::format()?,
         Command::Process => submission::process::run(pool).await?,
-        _ => (),
     }
 
     Ok(())

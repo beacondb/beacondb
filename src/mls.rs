@@ -2,7 +2,7 @@ use std::io;
 
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
-use sqlx::{query, PgPool};
+use sqlx::{query, MySqlPool};
 
 #[derive(Debug, Deserialize, Serialize)]
 struct Record {
@@ -25,60 +25,42 @@ enum RadioType {
     Lte,
 }
 
-pub async fn import(pool: PgPool) -> Result<()> {
-    // let mut tx = pool.begin().await?;
-    {
-        let mut reader = csv::Reader::from_reader(io::stdin());
-        for (i, result) in reader.deserialize().enumerate() {
-            let record: Record = result?;
-            if (i % 1_000_000) == 0 && i != 0 {
-                eprintln!("{i}");
-            }
-
-            let radio = match record.radio {
-                RadioType::Gsm => 0,
-                RadioType::Umts => 1,
-                RadioType::Lte => 2,
-            };
-
-            let cell: i32 = match record.cell.try_into() {
-                Ok(x) => x,
-                Err(_) => {
-                    // println!("overflowing cell id: {record:?}");
-                    continue;
-                }
-            };
-
-            // no networks have conflicts where they both use `null` and `0`
-            let unit = record.unit.unwrap_or_default();
-            println!(
-                "{},{},{},{},{},{},{},{},{}",
-                radio,
-                record.mcc,
-                record.net,
-                record.area,
-                cell,
-                unit,
-                record.lon,
-                record.lat,
-                record.range,
-            );
-
-            // query!(
-            //     "insert into cell_mls (radio, country, network, area, cell, unit, x, y, r) values ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
-            //     radio,
-            //     record.mcc,
-            //     record.net,
-            //     record.area,
-            //     cell,
-            //     unit,
-            //     record.lon,
-            //     record.lat,
-            //     record.range,
-            // ).execute(&mut *tx).await?;
+pub fn format() -> Result<()> {
+    let mut reader = csv::Reader::from_reader(io::stdin());
+    for (i, result) in reader.deserialize().enumerate() {
+        let record: Record = result?;
+        if (i % 1_000_000) == 0 && i != 0 {
+            eprintln!("{i}");
         }
+
+        let radio = match record.radio {
+            RadioType::Gsm => "gsm",
+            RadioType::Umts => "wcdma",
+            RadioType::Lte => "lte",
+        };
+
+        let cell: i32 = match record.cell.try_into() {
+            Ok(x) => x,
+            Err(_) => {
+                // println!("overflowing cell id: {record:?}");
+                continue;
+            }
+        };
+
+        let unit = record.unit.unwrap_or_default();
+        println!(
+            "{},{},{},{},{},{},{},{},{}",
+            radio,
+            record.mcc,
+            record.net,
+            record.area,
+            cell,
+            unit,
+            record.lat,
+            record.lon,
+            record.range,
+        );
     }
-    // tx.commit().await?;
 
     Ok(())
 }

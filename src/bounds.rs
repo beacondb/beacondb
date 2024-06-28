@@ -1,5 +1,7 @@
 use std::ops::Add;
 
+use geo::Point;
+
 #[derive(Clone, Copy)]
 pub struct Bounds {
     pub min_lat: f64,
@@ -16,6 +18,12 @@ impl Bounds {
             max_lat: lat,
             max_lon: lon,
         }
+    }
+
+    pub fn points(&self) -> (Point, Point) {
+        let min = Point::new(self.min_lon, self.min_lat);
+        let max = Point::new(self.max_lon, self.max_lat);
+        (min, max)
     }
 }
 

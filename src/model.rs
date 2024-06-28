@@ -1,3 +1,4 @@
+use serde::Deserialize;
 use sqlx::{query_as, MySqlPool};
 
 use crate::bounds::Bounds;
@@ -20,7 +21,8 @@ pub enum Transmitter {
     },
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, sqlx::Type)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Deserialize, sqlx::Type)]
+#[serde(rename_all = "lowercase")]
 pub enum CellRadio {
     Gsm,
     Wcdma,
