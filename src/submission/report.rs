@@ -49,6 +49,7 @@ enum RadioType {
     #[serde(rename = "wcdma")]
     Umts,
     Lte,
+    Nr,
 }
 
 #[derive(Deserialize)]
@@ -83,7 +84,7 @@ pub fn extract(raw: &str) -> Result<(Position, Vec<Transmitter>)> {
                 RadioType::Gsm => CellRadio::Gsm,
                 RadioType::Umts => CellRadio::Wcdma,
                 RadioType::Lte => CellRadio::Lte,
-                // Nr
+                RadioType::Nr => CellRadio::Nr,
             },
             country: cell.mobile_country_code,
             network: cell.mobile_network_code,
