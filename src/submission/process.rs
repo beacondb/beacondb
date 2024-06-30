@@ -6,11 +6,11 @@ use sqlx::{query, query_scalar, MySqlPool};
 use crate::{bounds::Bounds, model::Transmitter};
 
 pub async fn run(pool: MySqlPool) -> Result<()> {
-    let count =
-        query_scalar!("select count(*) as count from submission where processed_at is null")
-            .fetch_one(&pool)
-            .await?;
+    let reports = query!("select id, raw from submission where processed_at is null order by id")
+        .fetch_all(&pool)
+        .await?;
 
+    let count = reports.len();
     if count == 0 {
         println!("Nothing to process");
         return Ok(());
@@ -18,11 +18,6 @@ pub async fn run(pool: MySqlPool) -> Result<()> {
     println!("{count} submissions need processing");
 
     let mut modified: BTreeMap<Transmitter, Bounds> = BTreeMap::new();
-
-    let reports = query!("select id, raw from submission order by id")
-        .fetch_all(&pool)
-        .await?;
-
     let mut tx = pool.begin().await?;
     for next in reports {
         // TODO: parsing failures should be noted but not halt the queue

@@ -1,6 +1,6 @@
 {
   "db_name": "MySQL",
-  "query": "select id, raw from submission order by id",
+  "query": "select id, raw from submission where processed_at is null order by id",
   "describe": {
     "columns": [
       {
@@ -32,5 +32,5 @@
       false
     ]
   },
-  "hash": "d17ac36f99d5ba70ef0bf5f81b52a415fdbef49cecd3291b7fe78438fa748586"
+  "hash": "4fa9142312f2a84ac44260cbecede349fb55568cce645a8cad352ffa56b04728"
 }
