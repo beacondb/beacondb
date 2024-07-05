@@ -1,6 +1,6 @@
 {
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
+    nixpkgs.url = "github:joelkoen/nixpkgs";
 
     crane = {
       url = "github:ipetkov/crane";
@@ -27,5 +27,12 @@
               || craneLib.filterCargoSources path type;
           };
         };
-      });
+
+        devShells.default = with pkgs; mkShell {
+          buildInputs = [
+            sqlx-cli
+          ];
+        };
+      }
+    );
 }
