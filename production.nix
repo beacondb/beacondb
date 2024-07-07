@@ -17,6 +17,10 @@
 
 */
 
+let
+  config = ./production.toml;
+in
+
 {
   systemd = {
     timers.beacondb-process = {
@@ -35,7 +39,7 @@
         wantedBy = [ "multi-user.target" ];
 
         script = ''
-          env DATABASE_URL=mysql://beacondb@localhost/beacondb?socket=/run/mysqld/mysqld.sock ${pkgs.beacondb}/bin/beacondb serve 8924
+          ${pkgs.beacondb}/bin/beacondb -c ${config} serve 8924
         '';
 
         serviceConfig = {
@@ -48,7 +52,7 @@
 
       beacondb-process = {
         script = ''
-          env DATABASE_URL=mysql://beacondb@localhost/beacondb?socket=/run/mysqld/mysqld.sock ${pkgs.beacondb}/bin/beacondb process
+          ${pkgs.beacondb}/bin/beacondb -c ${config} process
         '';
 
         serviceConfig = {

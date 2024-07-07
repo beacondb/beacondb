@@ -1,9 +1,12 @@
+use std::path::{Path, PathBuf};
+
 use actix_web::{web, App, HttpServer};
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use sqlx::MySqlPool;
 
 mod bounds;
+mod config;
 mod db;
 mod geolocate;
 mod mls;
@@ -12,6 +15,9 @@ mod submission;
 
 #[derive(Debug, Parser)]
 struct Cli {
+    #[arg(short, long)]
+    config: Option<PathBuf>,
+
     #[clap(subcommand)]
     command: Command,
 }
@@ -27,7 +33,13 @@ enum Command {
 async fn main() -> Result<()> {
     let cli = Cli::parse();
 
-    let pool = MySqlPool::connect(&dotenvy::var("DATABASE_URL")?).await?;
+    let path = match cli.config.as_deref() {
+        Some(x) => x,
+        None => Path::new("config.toml"),
+    };
+    let config = config::load(path)?;
+
+    let pool = MySqlPool::connect(&config.database_url).await?;
     sqlx::migrate!().run(&pool).await?;
 
     match cli.command {
@@ -39,13 +51,13 @@ async fn main() -> Result<()> {
                     .service(geolocate::service)
                     .service(submission::geosubmit::service)
             })
-            .bind(("0.0.0.0", port.unwrap_or(8080)))?
+            .bind(("0.0.0.0", config.http_port))?
             .run()
             .await?;
         }
 
         Command::FormatMls => mls::format()?,
-        Command::Process => submission::process::run(pool).await?,
+        Command::Process => submission::process::run(pool, config.stats_path.as_deref()).await?,
     }
 
     Ok(())

@@ -1,11 +1,12 @@
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, fs, path::Path};
 
 use anyhow::{Context, Result};
+use serde::Serialize;
 use sqlx::{query, query_scalar, MySqlPool};
 
 use crate::{bounds::Bounds, model::Transmitter};
 
-pub async fn run(pool: MySqlPool) -> Result<()> {
+pub async fn run(pool: MySqlPool, stats_path: Option<&Path>) -> Result<()> {
     let reports = query!("select id, raw from submission where processed_at is null order by id")
         .fetch_all(&pool)
         .await?;
@@ -78,5 +79,25 @@ pub async fn run(pool: MySqlPool) -> Result<()> {
     }
     tx.commit().await?;
 
+    if let Some(path) = stats_path {
+        let stats = Stats {
+            total_wifi: query_scalar!("select count(*) from wifi").fetch_one(&pool).await?,
+            total_cell: query_scalar!("select count(*) from cell").fetch_one(&pool).await?,
+            total_bluetooth: query_scalar!("select count(*) from bluetooth").fetch_one(&pool).await?,
+            total_countries: query_scalar!("select count(distinct country) from cell").fetch_one(&pool).await?
+        };
+
+        let data = serde_json::to_string_pretty(&stats)?;
+        fs::write(path, data)?;
+    }
+
     Ok(())
+}
+
+#[derive(Serialize)]
+struct Stats {
+    total_wifi: i64,
+    total_cell: i64,
+    total_bluetooth: i64,
+    total_countries: i64,
 }

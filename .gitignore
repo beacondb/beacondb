@@ -3,3 +3,5 @@ result*
 *.db
 
 .env
+config.toml
+stats.json

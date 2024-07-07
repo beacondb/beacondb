@@ -1,0 +1,25 @@
+{
+  "db_name": "MySQL",
+  "query": "select count(distinct country) from cell",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "count(distinct country)",
+        "type_info": {
+          "type": "LongLong",
+          "flags": "NOT_NULL | BINARY",
+          "char_set": 63,
+          "max_size": 21
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "1051d9566c38dd21c026eb29238cde5d876761b7da943e4008604f3133e61ab5"
+}

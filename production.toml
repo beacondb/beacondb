@@ -1,0 +1,3 @@
+database_url = "mysql://beacondb@localhost/beacondb?socket=/run/mysqld/mysqld.sock"
+http_port = 8924
+stats_path = "/srv/beacondb.net/stats.json"
