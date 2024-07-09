@@ -93,7 +93,7 @@ pub async fn service(
             let r = min.haversine_distance(&center);
             let (lon, lat) = center.x_y();
 
-            if r > 500.0 {
+            if (r < 1.0) || (r > 500.0) {
                 continue;
             }
 
