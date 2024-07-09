@@ -110,7 +110,12 @@ pub async fn service(
         latw /= ww;
         lonw /= ww;
         rw /= ww;
-        return Ok(HttpResponse::Ok().json(LocationResponse::new(latw, lonw, rw.max(50.0))));
+
+        if latw.is_nan() || lonw.is_nan() {
+            dbg!(rw, ww);
+        } else {
+            return Ok(HttpResponse::Ok().json(LocationResponse::new(latw, lonw, rw.max(50.0))));
+        }
     }
 
     for x in data.cell_towers {
