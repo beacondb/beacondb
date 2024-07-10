@@ -55,7 +55,7 @@ pub async fn service(
         None => None,
     };
 
-    insert(&*pool, ua, data)
+    insert(&pool, ua, data)
         .await
         .context("writing to database failed")
         .map_err(ErrorInternalServerError)?;

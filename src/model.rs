@@ -68,6 +68,6 @@ impl Transmitter {
             }
         };
 
-        Ok(bounds.map(|x| x.into()))
+        Ok(bounds)
     }
 }

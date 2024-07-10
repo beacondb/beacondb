@@ -66,7 +66,7 @@ struct Bluetooth {
 }
 
 pub fn extract(raw: &str) -> Result<(Position, Vec<Transmitter>)> {
-    let parsed: Report = serde_json::from_str(&raw)?;
+    let parsed: Report = serde_json::from_str(raw)?;
 
     let mut txs = Vec::new();
     for cell in parsed.cell_towers {

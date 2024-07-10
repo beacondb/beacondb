@@ -14,7 +14,7 @@ pub struct Config {
 }
 
 pub fn load(path: &Path) -> Result<Config> {
-    let data = fs::read_to_string(&path).context("Failed to read config")?;
+    let data = fs::read_to_string(path).context("Failed to read config")?;
     let config = toml::from_str(&data).context("Failed to parse config")?;
     Ok(config)
 }

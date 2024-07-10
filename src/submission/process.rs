@@ -28,18 +28,20 @@ pub async fn run(pool: MySqlPool, stats_path: Option<&Path>) -> Result<()> {
         for x in txs {
             if let Some(b) = modified.get_mut(&x) {
                 *b = *b + (pos.latitude, pos.longitude);
+            } else if let Some(b) = x.lookup(&pool).await? {
+                modified.insert(x, b + (pos.latitude, pos.longitude));
             } else {
-                if let Some(b) = x.lookup(&pool).await? {
-                    modified.insert(x, b + (pos.latitude, pos.longitude));
-                } else {
-                    modified.insert(x, Bounds::new(pos.latitude, pos.longitude));
-                }
+                modified.insert(x, Bounds::new(pos.latitude, pos.longitude));
             }
         }
 
-        query!("update submission set processed_at = now() where id = ?", next.id).execute(&mut *tx).await?;
+        query!(
+            "update submission set processed_at = now() where id = ?",
+            next.id
+        )
+        .execute(&mut *tx)
+        .await?;
     }
-
 
     println!("writing");
     for (x, b) in modified {
@@ -67,10 +69,10 @@ pub async fn run(pool: MySqlPool, stats_path: Option<&Path>) -> Result<()> {
                 .execute(&mut *tx)
                 .await?;
             }
-            Transmitter::Bluetooth{ mac } => {
+            Transmitter::Bluetooth { mac } => {
                 query!(
                     "replace into bluetooth (mac, min_lat, min_lon, max_lat, max_lon) values (?, ?, ?, ?, ?)",
-                    &mac[..], b.min_lat, b.min_lon, b.max_lat, b.max_lon 
+                    &mac[..], b.min_lat, b.min_lon, b.max_lat, b.max_lon
                 )
                 .execute(&mut *tx)
                 .await?;
@@ -81,10 +83,18 @@ pub async fn run(pool: MySqlPool, stats_path: Option<&Path>) -> Result<()> {
 
     if let Some(path) = stats_path {
         let stats = Stats {
-            total_wifi: query_scalar!("select count(*) from wifi").fetch_one(&pool).await?,
-            total_cell: query_scalar!("select count(*) from cell").fetch_one(&pool).await?,
-            total_bluetooth: query_scalar!("select count(*) from bluetooth").fetch_one(&pool).await?,
-            total_countries: query_scalar!("select count(distinct country) from cell").fetch_one(&pool).await?
+            total_wifi: query_scalar!("select count(*) from wifi")
+                .fetch_one(&pool)
+                .await?,
+            total_cell: query_scalar!("select count(*) from cell")
+                .fetch_one(&pool)
+                .await?,
+            total_bluetooth: query_scalar!("select count(*) from bluetooth")
+                .fetch_one(&pool)
+                .await?,
+            total_countries: query_scalar!("select count(distinct country) from cell")
+                .fetch_one(&pool)
+                .await?,
         };
 
         let data = serde_json::to_string_pretty(&stats)?;
