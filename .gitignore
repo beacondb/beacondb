@@ -4,4 +4,6 @@ result*
 
 .env
 config.toml
+
 stats.json
+*.geojson

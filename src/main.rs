@@ -9,6 +9,7 @@ mod bounds;
 mod config;
 mod db;
 mod geolocate;
+mod map;
 mod mls;
 mod model;
 mod submission;
@@ -27,6 +28,7 @@ enum Command {
     FormatMls,
     Serve { port: Option<u16> },
     Process,
+    Map,
 }
 
 #[tokio::main]
@@ -58,6 +60,7 @@ async fn main() -> Result<()> {
 
         Command::FormatMls => mls::format()?,
         Command::Process => submission::process::run(pool, config.stats_path.as_deref()).await?,
+        Command::Map => map::run()?,
     }
 
     Ok(())
