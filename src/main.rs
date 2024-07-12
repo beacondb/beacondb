@@ -49,7 +49,7 @@ async fn main() -> Result<()> {
             HttpServer::new(move || {
                 App::new()
                     .app_data(web::Data::new(pool.clone()))
-                    .app_data(web::JsonConfig::default().limit(50 * 1024 * 1024))
+                    .app_data(web::JsonConfig::default().limit(500 * 1024 * 1024))
                     .service(geolocate::service)
                     .service(submission::geosubmit::service)
             })
