@@ -1,8 +1,0 @@
-Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
-Upstream-Name: beaconDB
-Upstream-Contact: Joel Koen <mail@joelkoen.com>
-Source: https://beacondb.net/
-
-Files: *
-Copyright: 2024 Joel Koen
-License: AGPL-3.0-only

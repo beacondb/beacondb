@@ -1,0 +1,10 @@
+version = 1
+SPDX-PackageName = "beaconDB"
+SPDX-PackageSupplier = "Joel Koen <mail@joelkoen.com>"
+SPDX-PackageDownloadLocation = "https://beacondb.net/"
+
+[[annotations]]
+path = "**"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2024 Joel Koen"
+SPDX-License-Identifier = "AGPL-3.0-only"
