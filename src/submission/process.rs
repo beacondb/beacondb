@@ -1,26 +1,20 @@
 use std::{collections::BTreeMap, fs, path::Path};
 
 use anyhow::{Context, Result};
+use futures::{StreamExt, TryStreamExt};
 use serde::Serialize;
 use sqlx::{query, query_scalar, MySqlPool};
 
 use crate::{bounds::Bounds, model::Transmitter};
 
 pub async fn run(pool: MySqlPool, stats_path: Option<&Path>) -> Result<()> {
-    let reports = query!("select id, raw from submission where processed_at is null order by id")
-        .fetch_all(&pool)
-        .await?;
-
-    let count = reports.len();
-    if count == 0 {
-        println!("Nothing to process");
-        return Ok(());
-    }
-    println!("{count} submissions need processing");
-
+    let mut reports =
+        query!("select id, raw from submission where processed_at is null order by id")
+            .fetch(&pool);
     let mut modified: BTreeMap<Transmitter, Bounds> = BTreeMap::new();
     let mut tx = pool.begin().await?;
-    for next in reports {
+
+    while let Some(next) = reports.try_next().await? {
         // TODO: parsing failures should be noted but not halt the queue
         let (pos, txs) = super::report::extract(&next.raw)
             .with_context(|| format!("Failed to parse report #{}", next.id))?;
