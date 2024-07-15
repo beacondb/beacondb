@@ -15,9 +15,16 @@ pub async fn run(pool: MySqlPool, stats_path: Option<&Path>) -> Result<()> {
     let mut tx = pool.begin().await?;
 
     while let Some(next) = reports.try_next().await? {
-        // TODO: parsing failures should be noted but not halt the queue
-        let (pos, txs) = super::report::extract(&next.raw)
-            .with_context(|| format!("Failed to parse report #{}", next.id))?;
+        // TODO: parsing failures should be noted
+        let result = super::report::extract(&next.raw)
+            .with_context(|| format!("Failed to parse report #{}: {}", next.id, &next.raw));
+        let (pos, txs) = match result {
+            Ok(x) => x,
+            Err(e) => {
+                println!("{e}");
+                continue;
+            }
+        };
 
         for x in txs {
             if let Some(b) = modified.get_mut(&x) {
