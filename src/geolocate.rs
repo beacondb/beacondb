@@ -24,8 +24,7 @@ struct CellTower {
     mobile_network_code: i16,
     location_area_code: i32,
     cell_id: i32,
-    #[serde(default)]
-    psc: i16,
+    psc: Option<i16>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -118,20 +117,40 @@ pub async fn service(
         }
     }
 
+    // todo: this is awful
     for x in data.cell_towers {
-        let row = query_as!(Bounds,"select min_lat, min_lon, max_lat, max_lon from cell where radio = ? and country = ? and network = ? and area = ? and cell = ? and unit = ?",
-            x.radio_type, x.mobile_country_code, x.mobile_network_code, x.location_area_code, x.cell_id, x.psc
-        ).fetch_optional(&*pool).await.map_err(ErrorInternalServerError)?;
-        if let Some(row) = row {
-            return Ok(HttpResponse::Ok().json(Into::<LocationResponse>::into(row)));
-        }
+        if let Some(unit) = x.psc {
+            let row = query_as!(Bounds,"select min_lat, min_lon, max_lat, max_lon from cell where radio = ? and country = ? and network = ? and area = ? and cell = ? and unit = ?",
+                x.radio_type, x.mobile_country_code, x.mobile_network_code, x.location_area_code, x.cell_id, unit
+            ).fetch_optional(&*pool).await.map_err(ErrorInternalServerError)?;
+            if let Some(row) = row {
+                return Ok(HttpResponse::Ok().json(Into::<LocationResponse>::into(row)));
+            }
 
-        // fallback to MLS if beaconDB does not know of this cell tower
-        let row = query!("select lat, lon, radius from mls_cell where radio = ? and country = ? and network = ? and area = ? and cell = ? and unit = ?",
-            x.radio_type, x.mobile_country_code, x.mobile_network_code, x.location_area_code, x.cell_id, x.psc
-        ).fetch_optional(&*pool).await.map_err(ErrorInternalServerError)?;
-        if let Some(row) = row {
-            return Ok(HttpResponse::Ok().json(LocationResponse::new(row.lat, row.lon, row.radius)));
+            let row = query!("select lat, lon, radius from mls_cell where radio = ? and country = ? and network = ? and area = ? and cell = ? and unit = ?",
+                x.radio_type, x.mobile_country_code, x.mobile_network_code, x.location_area_code, x.cell_id, unit
+            ).fetch_optional(&*pool).await.map_err(ErrorInternalServerError)?;
+            if let Some(row) = row {
+                return Ok(
+                    HttpResponse::Ok().json(LocationResponse::new(row.lat, row.lon, row.radius))
+                );
+            }
+        } else {
+            let row = query_as!(Bounds,"select min_lat, min_lon, max_lat, max_lon from cell where radio = ? and country = ? and network = ? and area = ? and cell = ?",
+                x.radio_type, x.mobile_country_code, x.mobile_network_code, x.location_area_code, x.cell_id
+            ).fetch_optional(&*pool).await.map_err(ErrorInternalServerError)?;
+            if let Some(row) = row {
+                return Ok(HttpResponse::Ok().json(Into::<LocationResponse>::into(row)));
+            }
+
+            let row = query!("select lat, lon, radius from mls_cell where radio = ? and country = ? and network = ? and area = ? and cell = ?",
+                x.radio_type, x.mobile_country_code, x.mobile_network_code, x.location_area_code, x.cell_id
+            ).fetch_optional(&*pool).await.map_err(ErrorInternalServerError)?;
+            if let Some(row) = row {
+                return Ok(
+                    HttpResponse::Ok().json(LocationResponse::new(row.lat, row.lon, row.radius))
+                );
+            }
         }
     }
 
