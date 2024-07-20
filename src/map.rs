@@ -3,7 +3,7 @@ use std::{collections::BTreeSet, fs, io};
 use anyhow::Result;
 use h3o::{geom::ToGeo, LatLng, Resolution};
 
-const BASE_RESOLUTION: Resolution = Resolution::Six;
+const BASE_RESOLUTION: Resolution = Resolution::Seven;
 
 pub fn run() -> Result<()> {
     let mut reader = io::stdin();
