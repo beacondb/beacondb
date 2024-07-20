@@ -43,7 +43,7 @@ impl LocationResponse {
     fn new(lat: f64, lon: f64, acc: f64) -> Self {
         LocationResponse {
             location: Location { lat, lng: lon },
-            accuracy: acc,
+            accuracy: acc.max(50.0),
         }
     }
 }
@@ -113,7 +113,7 @@ pub async fn service(
         if latw.is_nan() || lonw.is_nan() {
             dbg!(rw, ww);
         } else {
-            return Ok(HttpResponse::Ok().json(LocationResponse::new(latw, lonw, rw.max(50.0))));
+            return Ok(HttpResponse::Ok().json(LocationResponse::new(latw, lonw, rw)));
         }
     }
 
