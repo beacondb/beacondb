@@ -46,6 +46,14 @@ impl LocationResponse {
             accuracy: acc.max(50.0),
         }
     }
+
+    fn respond(self) -> actix_web::Result<HttpResponse> {
+        if self.location.lat.is_nan() || self.location.lng.is_nan() {
+            Ok(HttpResponse::InternalServerError().finish())
+        } else {
+            Ok(HttpResponse::Ok().json(self))
+        }
+    }
 }
 
 impl From<Bounds> for LocationResponse {
@@ -113,7 +121,7 @@ pub async fn service(
         if latw.is_nan() || lonw.is_nan() {
             dbg!(rw, ww);
         } else {
-            return Ok(HttpResponse::Ok().json(LocationResponse::new(latw, lonw, rw)));
+            return LocationResponse::new(latw, lonw, rw).respond();
         }
     }
 
@@ -124,32 +132,28 @@ pub async fn service(
                 x.radio_type, x.mobile_country_code, x.mobile_network_code, x.location_area_code, x.cell_id, unit
             ).fetch_optional(&*pool).await.map_err(ErrorInternalServerError)?;
             if let Some(row) = row {
-                return Ok(HttpResponse::Ok().json(Into::<LocationResponse>::into(row)));
+                return LocationResponse::from(row).respond();
             }
 
             let row = query!("select lat, lon, radius from mls_cell where radio = ? and country = ? and network = ? and area = ? and cell = ? and unit = ?",
                 x.radio_type, x.mobile_country_code, x.mobile_network_code, x.location_area_code, x.cell_id, unit
             ).fetch_optional(&*pool).await.map_err(ErrorInternalServerError)?;
             if let Some(row) = row {
-                return Ok(
-                    HttpResponse::Ok().json(LocationResponse::new(row.lat, row.lon, row.radius))
-                );
+                return LocationResponse::new(row.lat, row.lon, row.radius).respond();
             }
         } else {
             let row = query_as!(Bounds,"select min_lat, min_lon, max_lat, max_lon from cell where radio = ? and country = ? and network = ? and area = ? and cell = ?",
                 x.radio_type, x.mobile_country_code, x.mobile_network_code, x.location_area_code, x.cell_id
             ).fetch_optional(&*pool).await.map_err(ErrorInternalServerError)?;
             if let Some(row) = row {
-                return Ok(HttpResponse::Ok().json(Into::<LocationResponse>::into(row)));
+                return LocationResponse::from(row).respond();
             }
 
             let row = query!("select lat, lon, radius from mls_cell where radio = ? and country = ? and network = ? and area = ? and cell = ?",
                 x.radio_type, x.mobile_country_code, x.mobile_network_code, x.location_area_code, x.cell_id
             ).fetch_optional(&*pool).await.map_err(ErrorInternalServerError)?;
             if let Some(row) = row {
-                return Ok(
-                    HttpResponse::Ok().json(LocationResponse::new(row.lat, row.lon, row.radius))
-                );
+                return LocationResponse::new(row.lat, row.lon, row.radius).respond();
             }
         }
     }
