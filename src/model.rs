@@ -9,7 +9,7 @@ pub enum Transmitter {
         radio: CellRadio,
         country: u16,
         network: u16,
-        area: u16,
+        area: u32, // u24 in db
         cell: u64,
         unit: u16,
     },

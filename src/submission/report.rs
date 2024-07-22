@@ -35,7 +35,7 @@ struct Cell {
     mobile_country_code: u16,
     mobile_network_code: u16,
     #[serde(default)]
-    location_area_code: u16,
+    location_area_code: u32, // u24 in db
     #[serde(default)]
     cell_id: u64,
     #[serde(default)]
