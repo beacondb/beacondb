@@ -60,14 +60,11 @@ pub async fn service(
         .context("writing to database failed")
         .map_err(ErrorInternalServerError)?;
 
+    // StatusCode::ACCEPTED is more accurate but ichnaea API documentation says that should be
+    // StatusCode::OK
+    // https://ichnaea.readthedocs.io/en/latest/api/geosubmit2.html#response
     // https://github.com/zamojski/TowerCollector/pull/225
-    let tower_collector = ua.is_some_and(|x| x == "okhttp/4.12.0");
-    let status = if tower_collector {
-        StatusCode::OK
-    } else {
-        StatusCode::ACCEPTED
-    };
-    Ok(HttpResponse::new(status))
+    Ok(HttpResponse::new(StatusCode::OK))
 }
 
 async fn insert(
