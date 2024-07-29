@@ -25,7 +25,6 @@ struct Report {
 pub struct Position {
     pub latitude: f64,
     pub longitude: f64,
-    pub accuracy: f64,
 }
 
 #[derive(Deserialize)]
