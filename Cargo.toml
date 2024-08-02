@@ -1,28 +1,6 @@
-[package]
-name = "beacondb"
-version = "0.1.0"
-edition = "2021"
-
-[dependencies]
-actix-web = "4.6.0"
-anyhow = "1.0.86"
-arrayref = "0.3.8"
-blake3 = "1.5.3"
-chrono = { version = "0.4.38", features = ["serde"] }
-clap = { version = "4.5.4", features = ["derive"] }
-csv = "1.3.0"
-dotenvy = "0.15.7"
-futures = "0.3.30"
-geo = "0.28.0"
-geojson = "0.24.1"
-h3o = { version = "0.6.4", features = ["geo"] }
-mac_address = { version = "1.1.7", features = ["serde"] }
-serde = { version = "1.0.203", features = ["derive"] }
-serde_json = "1.0.117"
-sqlx = { version = "0.7.4", features = ["chrono", "mysql", "runtime-tokio", "macros"] }
-tokio = { version = "1.38.0", features = ["macros", "rt-multi-thread"] }
-toml = "0.8.14"
-
-[lints.rust]
-unused = { level = "allow", priority = -1 }
-unsafe_code = "forbid"
+[workspace]
+resolver = "2"
+members = [
+  "bcap",
+  "beacondb",
+]

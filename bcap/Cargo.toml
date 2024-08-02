@@ -1,0 +1,9 @@
+[package]
+name = "bcap"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+arrayref = "0.3.8"
+blake3 = "1.5.3"
+geo = "0.28.0"

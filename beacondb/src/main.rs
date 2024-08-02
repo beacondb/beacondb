@@ -8,7 +8,6 @@ use sqlx::MySqlPool;
 mod bounds;
 mod config;
 mod geolocate;
-mod hash;
 mod map;
 mod mls;
 mod model;

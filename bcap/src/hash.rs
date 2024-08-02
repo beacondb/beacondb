@@ -5,8 +5,6 @@ use geo::{HaversineDestination, Point};
 pub const SALT: [u8; 2] = [0xbc, 0xdb];
 pub const MAX_OFFSET: f64 = 1_000.0; // 1km
 
-pub type MacAddress = [u8; 6];
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct BeaconHash {
     read_key: u32,
