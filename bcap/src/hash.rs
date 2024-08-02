@@ -14,11 +14,11 @@ pub struct BeaconHash {
 }
 
 impl BeaconHash {
-    pub fn new(mac: [u8; 6], ssid: &[u8]) -> Self {
+    pub fn new(mac: [u8; 6], ssid: &str) -> Self {
         let mut hasher = Hasher::new();
         hasher.update(&SALT);
         hasher.update(&mac);
-        hasher.update(&ssid);
+        hasher.update(ssid.as_bytes());
 
         let hash = *hasher.finalize().as_bytes();
         let read_key = u32::from_le_bytes(*array_ref![hash, 0, 4]);
@@ -62,12 +62,12 @@ impl BeaconHash {
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
     use super::*;
 
     #[test]
     fn deterministic() {
-        let beacon = BeaconHash::new([0x12, 0x34, 0x56, 0xab, 0xcd, 0xef], b"testing!");
+        let beacon = BeaconHash::new([0x12, 0x34, 0x56, 0xab, 0xcd, 0xef], "testing!");
         assert_eq!(beacon.read_key, 1502776492);
         assert_eq!(beacon.write_key, 1406914681);
         assert_eq!(beacon.x_offset, 634909180);

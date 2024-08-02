@@ -1,4 +1,5 @@
 pub mod hash;
-mod observation;
+pub mod observation;
+pub mod utils;
 
 pub use hash::BeaconHash;
