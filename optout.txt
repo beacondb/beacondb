@@ -39,6 +39,7 @@ my skoda
 my vw
 renault
 skoda
+toyota
 
 dashcam
 blackvue
