@@ -51,3 +51,27 @@ mivue
 mydean
 navman
 thinkware
+
+wifionice
+wifi@db
+bvg-wifi
+rrx hotspot
+flixbus-wlan
+flixtrain-wlan
+mobil mit der koveb
+revg wlan
+hotspot s-bahn rhein-ruhr
+alsawifi
+oebb
+oebb-wifi
+wireless@sg
+oryx one
+_sncf_wifi_inoui
+_sncf_wifi_intercities
+wifi ratp
+wifi blablabus
+_wifi_lyria
+eurostartrainswifi
+thalysnet
+yourtrainwifi
+amtrak_wifi
