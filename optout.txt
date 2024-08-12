@@ -52,26 +52,26 @@ mydean
 navman
 thinkware
 
-wifionice
-wifi@db
+alsawifi
+amtrak_wifi
 bvg-wifi
-rrx hotspot
+eurostartrainswifi
 flixbus-wlan
 flixtrain-wlan
-mobil mit der koveb
-revg wlan
 hotspot s-bahn rhein-ruhr
-alsawifi
+mobil mit der koveb
 oebb
 oebb-wifi
-wireless@sg
 oryx one
+revg wlan
+rrx hotspot
 _sncf_wifi_inoui
 _sncf_wifi_intercities
-wifi ratp
-wifi blablabus
-_wifi_lyria
-eurostartrainswifi
 thalysnet
+wifi blablabus
+wifi@db
+_wifi_lyria
+wifionice
+wifi ratp
+wireless@sg
 yourtrainwifi
-amtrak_wifi
