@@ -31,6 +31,7 @@ struct CellTower {
 #[serde(rename_all = "camelCase")]
 struct AccessPoint {
     mac_address: MacAddress,
+    signal_strength: Option<i8>,
 }
 
 #[derive(Debug, Serialize)]
@@ -86,6 +87,15 @@ pub async fn service(
     let mut ww = 0.0;
     let mut c = 0;
     for x in data.wifi_access_points {
+        let signal = match x.signal_strength.unwrap_or_default() {
+            0 => -80,
+            -50..0 => -50,
+            x if (-80..-50).contains(&x) => x,
+            // ..-80 => -80,
+            _ => continue,
+        };
+        let weight = ((1.0 / (signal as f64 - 20.0).powi(2)) * 10000.0).powi(2);
+
         let row = query_as!(
             Bounds,
             "select min_lat, min_lon, max_lat, max_lon from wifi where mac = ?",
@@ -100,17 +110,13 @@ pub async fn service(
             let r = min.haversine_distance(&center);
             let (lon, lat) = center.x_y();
 
-            if !(1.0..=500.0).contains(&r) {
-                continue;
+            if (1.0..=500.0).contains(&r) {
+                latw += lat * weight;
+                lonw += lon * weight;
+                rw += r * weight;
+                ww += weight;
+                c += 1;
             }
-
-            let w = 1.0 / r.sqrt();
-
-            latw += lat * w;
-            lonw += lon * w;
-            rw += r * w;
-            ww += w;
-            c += 1;
         }
     }
     if c > 2 {
