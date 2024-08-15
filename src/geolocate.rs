@@ -89,7 +89,7 @@ pub async fn service(
     for x in data.wifi_access_points {
         let signal = match x.signal_strength.unwrap_or_default() {
             0 => -80,
-            -50..0 => -50,
+            -50..=0 => -50,
             x if (-80..-50).contains(&x) => x,
             // ..-80 => -80,
             _ => continue,
