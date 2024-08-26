@@ -7,7 +7,7 @@ use sqlx::{query, query_as, MySqlPool};
 
 use crate::{bounds::Bounds, model::CellRadio};
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 struct LocationRequest {
     #[serde(default)]
@@ -73,12 +73,20 @@ struct Location {
     lng: f64,
 }
 
+#[derive(Debug, Deserialize)]
+struct Options {
+    #[serde(default)]
+    force_ok: bool,
+}
+
 #[post("/v1/geolocate")]
 pub async fn service(
-    data: web::Json<LocationRequest>,
+    options: web::Query<Options>,
+    data: Option<web::Json<LocationRequest>>,
     pool: web::Data<MySqlPool>,
 ) -> actix_web::Result<HttpResponse> {
-    let data = data.into_inner();
+    let options = options.into_inner();
+    let data = data.map(|x| x.into_inner()).unwrap_or_default();
     let pool = pool.into_inner();
 
     let mut latw = 0.0;
@@ -164,17 +172,21 @@ pub async fn service(
         }
     }
 
-    Ok(HttpResponse::NotFound().json(json!(
-        {
-            "error": {
-                "errors": [{
-                    "domain": "geolocation",
-                    "reason": "notFound",
-                    "message": "No location could be estimated based on the data provided",
-                }],
-                "code": 404,
-                "message": "Not found",
+    if options.force_ok {
+        LocationResponse::new(0.0, 0.0, 1234.5).respond()
+    } else {
+        Ok(HttpResponse::NotFound().json(json!(
+            {
+                "error": {
+                    "errors": [{
+                        "domain": "geolocation",
+                        "reason": "notFound",
+                        "message": "No location could be estimated based on the data provided",
+                    }],
+                    "code": 404,
+                    "message": "Not found",
+                }
             }
-        }
-    )))
+        )))
+    }
 }
