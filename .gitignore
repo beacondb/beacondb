@@ -7,3 +7,5 @@ config.toml
 
 stats.json
 *.geojson
+
+.idea

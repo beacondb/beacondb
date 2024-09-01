@@ -74,7 +74,10 @@ async fn insert(
 ) -> anyhow::Result<()> {
     let mut tx = pool.begin().await?;
 
-    for report in submission.items {
+    for report in submission.items.iter().filter(|r| {
+        // Ignore reports for (-1,-1) to (1, 1)
+        !(r.position.latitude.abs() <= 1. && r.position.longitude.abs() <= 1.)
+    }) {
         query!("insert ignore into submission (timestamp, latitude, longitude, user_agent, raw) values (?, ?, ?, ?, ?)",
             report.timestamp,
             report.position.latitude,
