@@ -127,7 +127,7 @@ pub async fn service(
             }
         }
     }
-    if c > 2 {
+    if c >= 2 {
         latw /= ww;
         lonw /= ww;
         rw /= ww;
