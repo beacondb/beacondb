@@ -1,5 +1,5 @@
 use actix_web::{error::ErrorInternalServerError, post, web, HttpResponse};
-use geo::HaversineDistance;
+use geo::{Haversine, Distance};
 use mac_address::MacAddress;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -61,7 +61,7 @@ impl From<Bounds> for LocationResponse {
     fn from(value: Bounds) -> Self {
         let (min, max) = value.points();
         let center = (min + max) / 2.0;
-        let acc = min.haversine_distance(&center);
+        let acc = Haversine::distance(min, center);
         let (lon, lat) = center.x_y();
         Self::new(lat, lon, acc)
     }
@@ -115,7 +115,7 @@ pub async fn service(
         if let Some(row) = row {
             let (min, max) = row.points();
             let center = (min + max) / 2.0;
-            let r = min.haversine_distance(&center);
+            let r = Haversine::distance(min, center);
             let (lon, lat) = center.x_y();
 
             if (1.0..=500.0).contains(&r) {

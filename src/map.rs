@@ -1,7 +1,9 @@
 use std::{collections::BTreeSet, fs, io};
 
 use anyhow::Result;
-use h3o::{geom::ToGeo, LatLng, Resolution};
+use geojson::Geometry;
+use geo_types::MultiPolygon;
+use h3o::{geom::dissolve, LatLng, Resolution};
 
 const RESOLUTION: Resolution = Resolution::Eight;
 
@@ -18,10 +20,11 @@ pub fn run() -> Result<()> {
         cells.insert(cell);
     }
 
+    let multi_polygon: MultiPolygon = dissolve(cells)?;
+    let geom = Geometry::from(&multi_polygon);
+
     let name = format!("{}.geojson", RESOLUTION as u8);
-    let x = cells.to_geojson()?;
-    let x = x.to_string();
-    fs::write(name, x)?;
+    fs::write(name, geom.to_string())?;
 
     Ok(())
 }
