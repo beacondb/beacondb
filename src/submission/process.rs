@@ -56,7 +56,9 @@ pub async fn run(pool: PgPool, stats_path: Option<&Path>) -> Result<()> {
                 unit,
             } => {
                 query!(
-                    "insert into cell (radio, country, network, area, cell, unit, min_lat, min_lon, max_lat, max_lon) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)",
+                    "insert into cell (radio, country, network, area, cell, unit, min_lat, min_lon, max_lat, max_lon) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+                     on conflict (radio, country, network, area, cell, unit) do update set min_lat = EXCLUDED.min_lat, min_lon = EXCLUDED.min_lon, max_lat = EXCLUDED.max_lat, max_lon = EXCLUDED.max_lon
+                    ",
                     radio as i16, country, network, area, cell, unit, b.min_lat, b.min_lon, b.max_lat, b.max_lon
                 )
                 .execute(&mut *tx)
@@ -64,7 +66,9 @@ pub async fn run(pool: PgPool, stats_path: Option<&Path>) -> Result<()> {
             }
             Transmitter::Wifi { mac } => {
                 query!(
-                    "insert into wifi (mac, min_lat, min_lon, max_lat, max_lon) values ($1, $2, $3, $4, $5)",
+                    "insert into wifi (mac, min_lat, min_lon, max_lat, max_lon) values ($1, $2, $3, $4, $5)
+                     on conflict (mac) do update set min_lat = EXCLUDED.min_lat, min_lon = EXCLUDED.min_lon, max_lat = EXCLUDED.max_lat, max_lon = EXCLUDED.max_lon
+                    ",
                     &mac, b.min_lat, b.min_lon, b.max_lat, b.max_lon
                 )
                 .execute(&mut *tx)
@@ -72,7 +76,9 @@ pub async fn run(pool: PgPool, stats_path: Option<&Path>) -> Result<()> {
             }
             Transmitter::Bluetooth { mac } => {
                 query!(
-                    "insert into bluetooth (mac, min_lat, min_lon, max_lat, max_lon) values ($1, $2, $3, $4, $5)",
+                    "insert into bluetooth (mac, min_lat, min_lon, max_lat, max_lon) values ($1, $2, $3, $4, $5)
+                     on conflict (mac) do update set min_lat = EXCLUDED.min_lat, min_lon = EXCLUDED.min_lon, max_lat = EXCLUDED.max_lat, max_lon = EXCLUDED.max_lon
+                    ",
                     &mac, b.min_lat, b.min_lon, b.max_lat, b.max_lon
                 )
                 .execute(&mut *tx)
