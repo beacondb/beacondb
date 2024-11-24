@@ -1,5 +1,6 @@
+use mac_address::MacAddress;
 use serde::Deserialize;
-use sqlx::{query_as, MySqlPool};
+use sqlx::{query_as, PgPool};
 
 use crate::bounds::Bounds;
 
@@ -7,31 +8,33 @@ use crate::bounds::Bounds;
 pub enum Transmitter {
     Cell {
         radio: CellRadio,
-        country: u16,
-        network: u16,
-        area: u32, // u24 in db
-        cell: u64,
-        unit: u16,
+        // all integers are stored as signed in postgres
+        country: i16,
+        network: i16,
+        area: i32,
+        cell: i64,
+        unit: i16,
     },
     Wifi {
-        mac: [u8; 6],
+        mac: MacAddress,
     },
     Bluetooth {
-        mac: [u8; 6],
+        mac: MacAddress,
     },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Deserialize, sqlx::Type)]
 #[serde(rename_all = "lowercase")]
+#[repr(i16)]
 pub enum CellRadio {
-    Gsm,
-    Wcdma,
-    Lte,
-    Nr,
+    Gsm = 2,
+    Wcdma = 3,
+    Lte = 4,
+    Nr = 5,
 }
 
 impl Transmitter {
-    pub async fn lookup(&self, pool: &MySqlPool) -> sqlx::Result<Option<Bounds>> {
+    pub async fn lookup(&self, pool: &PgPool) -> sqlx::Result<Option<Bounds>> {
         let bounds = match self {
             Transmitter::Cell {
                 radio,
@@ -43,16 +46,15 @@ impl Transmitter {
             } => {
                 query_as!(
                     Bounds,
-                    "select min_lat, min_lon, max_lat, max_lon from cell where radio = ? and country = ? and network = ? and area = ? and cell = ? and unit = ?",
-                    radio,country,network,area,cell,unit
-
+                    "select min_lat, min_lon, max_lat, max_lon from cell where radio = $1 and country = $2 and network = $3 and area = $4 and cell = $5 and unit = $6",
+                    *radio as i16, country, network, area, cell, unit
                 ).fetch_optional(pool).await?
             }
             Transmitter::Wifi { mac } => {
                 query_as!(
                     Bounds,
-                    "select min_lat, min_lon, max_lat, max_lon from wifi where mac = ?",
-                    &mac[..]
+                    "select min_lat, min_lon, max_lat, max_lon from wifi where mac = $1",
+                    mac
                 )
                 .fetch_optional(pool)
                 .await?
@@ -60,8 +62,8 @@ impl Transmitter {
             Transmitter::Bluetooth { mac } => {
                 query_as!(
                     Bounds,
-                    "select min_lat, min_lon, max_lat, max_lon from wifi where mac = ?",
-                    &mac[..]
+                    "select min_lat, min_lon, max_lat, max_lon from wifi where mac = $1",
+                    mac
                 )
                 .fetch_optional(pool)
                 .await?

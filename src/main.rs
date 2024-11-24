@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use actix_web::{web, App, HttpServer};
 use anyhow::Result;
 use clap::{Parser, Subcommand};
-use sqlx::MySqlPool;
+use sqlx::PgPool;
 
 mod bounds;
 mod config;
@@ -40,7 +40,7 @@ async fn main() -> Result<()> {
     };
     let config = config::load(path)?;
 
-    let pool = MySqlPool::connect(&config.database_url).await?;
+    let pool = PgPool::connect(&config.database_url).await?;
     sqlx::migrate!().run(&pool).await?;
 
     match cli.command {

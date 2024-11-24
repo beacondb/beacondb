@@ -5,7 +5,7 @@ use geo::{Distance, Haversine};
 use mac_address::MacAddress;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use sqlx::{query, query_as, MySqlPool};
+use sqlx::{query, query_as, PgPool};
 
 use crate::{bounds::Bounds, model::CellRadio};
 
@@ -25,7 +25,7 @@ struct CellTower {
     mobile_country_code: i16,
     mobile_network_code: i16,
     location_area_code: i32,
-    cell_id: i32,
+    cell_id: i64,
     psc: Option<i16>,
 }
 
@@ -85,7 +85,7 @@ struct Options {
 pub async fn service(
     options: web::Query<Options>,
     data: Option<web::Json<LocationRequest>>,
-    pool: web::Data<MySqlPool>,
+    pool: web::Data<PgPool>,
 ) -> actix_web::Result<HttpResponse> {
     let options = options.into_inner();
     let data = data.map(|x| x.into_inner()).unwrap_or_default();
@@ -113,8 +113,8 @@ pub async fn service(
 
         let row = query_as!(
             Bounds,
-            "select min_lat, min_lon, max_lat, max_lon from wifi where mac = ?",
-            &x.mac_address.bytes()[..]
+            "select min_lat, min_lon, max_lat, max_lon from wifi where mac = $1",
+            &x.mac_address
         )
         .fetch_optional(&*pool)
         .await
@@ -149,29 +149,29 @@ pub async fn service(
     // todo: this is awful
     for x in data.cell_towers {
         if let Some(unit) = x.psc {
-            let row = query_as!(Bounds,"select min_lat, min_lon, max_lat, max_lon from cell where radio = ? and country = ? and network = ? and area = ? and cell = ? and unit = ?",
-                x.radio_type, x.mobile_country_code, x.mobile_network_code, x.location_area_code, x.cell_id, unit
+            let row = query_as!(Bounds,"select min_lat, min_lon, max_lat, max_lon from cell where radio = $1 and country = $2 and network = $3 and area = $4 and cell = $5 and unit = $6",
+                x.radio_type as i16, x.mobile_country_code, x.mobile_network_code, x.location_area_code, x.cell_id, unit
             ).fetch_optional(&*pool).await.map_err(ErrorInternalServerError)?;
             if let Some(row) = row {
                 return LocationResponse::from(row).respond();
             }
 
-            let row = query!("select lat, lon, radius from mls_cell where radio = ? and country = ? and network = ? and area = ? and cell = ? and unit = ?",
-                x.radio_type, x.mobile_country_code, x.mobile_network_code, x.location_area_code, x.cell_id, unit
+            let row = query!("select lat, lon, radius from mls_cell where radio = $1 and country = $2 and network = $3 and area = $4 and cell = $5 and unit = $6",
+                x.radio_type as i16, x.mobile_country_code, x.mobile_network_code, x.location_area_code, x.cell_id, unit
             ).fetch_optional(&*pool).await.map_err(ErrorInternalServerError)?;
             if let Some(row) = row {
                 return LocationResponse::new(row.lat, row.lon, row.radius).respond();
             }
         } else {
-            let row = query_as!(Bounds,"select min_lat, min_lon, max_lat, max_lon from cell where radio = ? and country = ? and network = ? and area = ? and cell = ?",
-                x.radio_type, x.mobile_country_code, x.mobile_network_code, x.location_area_code, x.cell_id
+            let row = query_as!(Bounds,"select min_lat, min_lon, max_lat, max_lon from cell where radio = $1 and country = $2 and network = $3 and area = $4 and cell = $5",
+                x.radio_type as i16, x.mobile_country_code, x.mobile_network_code, x.location_area_code, x.cell_id
             ).fetch_optional(&*pool).await.map_err(ErrorInternalServerError)?;
             if let Some(row) = row {
                 return LocationResponse::from(row).respond();
             }
 
-            let row = query!("select lat, lon, radius from mls_cell where radio = ? and country = ? and network = ? and area = ? and cell = ?",
-                x.radio_type, x.mobile_country_code, x.mobile_network_code, x.location_area_code, x.cell_id
+            let row = query!("select lat, lon, radius from mls_cell where radio = $1 and country = $2 and network = $3 and area = $4 and cell = $5",
+                x.radio_type as i16, x.mobile_country_code, x.mobile_network_code, x.location_area_code, x.cell_id
             ).fetch_optional(&*pool).await.map_err(ErrorInternalServerError)?;
             if let Some(row) = row {
                 return LocationResponse::new(row.lat, row.lon, row.radius).respond();

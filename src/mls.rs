@@ -2,7 +2,9 @@ use std::io;
 
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
-use sqlx::{query, MySqlPool};
+use sqlx::query;
+
+use crate::model::CellRadio;
 
 #[derive(Debug, Deserialize, Serialize)]
 struct Record {
@@ -34,27 +36,19 @@ pub fn format() -> Result<()> {
         }
 
         let radio = match record.radio {
-            RadioType::Gsm => "gsm",
-            RadioType::Umts => "wcdma",
-            RadioType::Lte => "lte",
-        };
-
-        let cell: i32 = match record.cell.try_into() {
-            Ok(x) => x,
-            Err(_) => {
-                // println!("overflowing cell id: {record:?}");
-                continue;
-            }
+            RadioType::Gsm => CellRadio::Gsm,
+            RadioType::Umts => CellRadio::Wcdma,
+            RadioType::Lte => CellRadio::Lte,
         };
 
         let unit = record.unit.unwrap_or_default();
         println!(
             "{},{},{},{},{},{},{},{},{}",
-            radio,
+            radio as i16,
             record.mcc,
             record.net,
             record.area,
-            cell,
+            record.cell,
             unit,
             record.lat,
             record.lon,

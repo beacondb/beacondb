@@ -7,7 +7,7 @@ use anyhow::Context;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use sqlx::{query, MySqlPool};
+use sqlx::{query, PgPool};
 
 // only the bare minimum is parsed here: it is assumed that certain data issues
 // may be due to device manufacturer software, making it difficult for
@@ -32,8 +32,8 @@ struct Report {
 
 #[derive(Deserialize, Serialize)]
 struct Position {
-    latitude: f32,
-    longitude: f32,
+    latitude: f64,
+    longitude: f64,
     #[serde(flatten)]
     extra: Value,
 }
@@ -41,7 +41,7 @@ struct Position {
 #[post("/v2/geosubmit")]
 pub async fn service(
     data: web::Json<Submission>,
-    pool: web::Data<MySqlPool>,
+    pool: web::Data<PgPool>,
     req: HttpRequest,
 ) -> actix_web::Result<impl Responder> {
     let data = data.into_inner();
@@ -60,15 +60,11 @@ pub async fn service(
         .context("writing to database failed")
         .map_err(ErrorInternalServerError)?;
 
-    // StatusCode::ACCEPTED is more accurate but ichnaea API documentation says that should be
-    // StatusCode::OK
-    // https://ichnaea.readthedocs.io/en/latest/api/geosubmit2.html#response
-    // https://github.com/zamojski/TowerCollector/pull/225
     Ok(HttpResponse::new(StatusCode::OK))
 }
 
 async fn insert(
-    pool: &MySqlPool,
+    pool: &PgPool,
     user_agent: Option<&str>,
     submission: Submission,
 ) -> anyhow::Result<()> {
@@ -78,7 +74,7 @@ async fn insert(
         // Ignore reports for (-1,-1) to (1, 1)
         !(r.position.latitude.abs() <= 1. && r.position.longitude.abs() <= 1.)
     }) {
-        query!("insert ignore into submission (timestamp, latitude, longitude, user_agent, raw) values (?, ?, ?, ?, ?)",
+        query!("insert into submission (timestamp, latitude, longitude, user_agent, raw) values ($1, $2, $3, $4, $5) on conflict do nothing",
             report.timestamp,
             report.position.latitude,
             report.position.longitude,

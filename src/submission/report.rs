@@ -85,11 +85,12 @@ pub fn extract(raw: &str) -> Result<(Position, Vec<Transmitter>)> {
                 RadioType::Lte => CellRadio::Lte,
                 RadioType::Nr => CellRadio::Nr,
             },
-            country: cell.mobile_country_code,
-            network: cell.mobile_network_code,
-            area: cell.location_area_code,
-            cell: cell.cell_id,
-            unit: cell.primary_scrambling_code,
+            // postgres uses signed integers
+            country: cell.mobile_country_code as i16,
+            network: cell.mobile_network_code as i16,
+            area: cell.location_area_code as i32,
+            cell: cell.cell_id as i64,
+            unit: cell.primary_scrambling_code as i16,
         })
     }
     for wifi in parsed.wifi_access_points {
@@ -100,13 +101,13 @@ pub fn extract(raw: &str) -> Result<(Position, Vec<Transmitter>)> {
             .filter(|x| !x.is_empty());
         if ssid.is_some_and(|x| !x.contains("_nomap") && !x.contains("_output")) {
             txs.push(Transmitter::Wifi {
-                mac: wifi.mac_address.bytes(),
+                mac: wifi.mac_address,
             });
         }
     }
     for bt in parsed.bluetooth_beacons {
         txs.push(Transmitter::Bluetooth {
-            mac: bt.mac_address.bytes(),
+            mac: bt.mac_address,
         })
     }
 

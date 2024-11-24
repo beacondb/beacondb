@@ -1,3 +1,3 @@
-database_url = "mysql://joel@localhost/beacondb?socket=/run/mysqld/mysqld.sock"
+database_url = "postgres:///beacondb"
 http_port = 8099
 stats_path = "stats.json"

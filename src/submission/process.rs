@@ -3,11 +3,11 @@ use std::{collections::BTreeMap, fs, path::Path};
 use anyhow::{Context, Result};
 use futures::{StreamExt, TryStreamExt};
 use serde::Serialize;
-use sqlx::{query, query_scalar, MySqlPool};
+use sqlx::{query, query_scalar, PgPool};
 
 use crate::{bounds::Bounds, model::Transmitter};
 
-pub async fn run(pool: MySqlPool, stats_path: Option<&Path>) -> Result<()> {
+pub async fn run(pool: PgPool, stats_path: Option<&Path>) -> Result<()> {
     let mut reports =
         query!("select id, raw from submission where processed_at is null order by id")
             .fetch(&pool);
@@ -37,7 +37,7 @@ pub async fn run(pool: MySqlPool, stats_path: Option<&Path>) -> Result<()> {
         }
 
         query!(
-            "update submission set processed_at = now() where id = ?",
+            "update submission set processed_at = now() where id = $1",
             next.id
         )
         .execute(&mut *tx)
@@ -56,24 +56,24 @@ pub async fn run(pool: MySqlPool, stats_path: Option<&Path>) -> Result<()> {
                 unit,
             } => {
                 query!(
-                    "replace into cell (radio, country, network, area, cell, unit, min_lat, min_lon, max_lat, max_lon) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                    radio, country, network, area, cell, unit, b.min_lat, b.min_lon, b.max_lat, b.max_lon         ,
+                    "insert into cell (radio, country, network, area, cell, unit, min_lat, min_lon, max_lat, max_lon) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)",
+                    radio as i16, country, network, area, cell, unit, b.min_lat, b.min_lon, b.max_lat, b.max_lon
                 )
                 .execute(&mut *tx)
                 .await?;
             }
             Transmitter::Wifi { mac } => {
                 query!(
-                    "replace into wifi (mac, min_lat, min_lon, max_lat, max_lon) values (?, ?, ?, ?, ?)",
-                    &mac[..], b.min_lat, b.min_lon, b.max_lat, b.max_lon
+                    "insert into wifi (mac, min_lat, min_lon, max_lat, max_lon) values ($1, $2, $3, $4, $5)",
+                    &mac, b.min_lat, b.min_lon, b.max_lat, b.max_lon
                 )
                 .execute(&mut *tx)
                 .await?;
             }
             Transmitter::Bluetooth { mac } => {
                 query!(
-                    "replace into bluetooth (mac, min_lat, min_lon, max_lat, max_lon) values (?, ?, ?, ?, ?)",
-                    &mac[..], b.min_lat, b.min_lon, b.max_lat, b.max_lon
+                    "insert into bluetooth (mac, min_lat, min_lon, max_lat, max_lon) values ($1, $2, $3, $4, $5)",
+                    &mac, b.min_lat, b.min_lon, b.max_lat, b.max_lon
                 )
                 .execute(&mut *tx)
                 .await?;
@@ -86,16 +86,20 @@ pub async fn run(pool: MySqlPool, stats_path: Option<&Path>) -> Result<()> {
         let stats = Stats {
             total_wifi: query_scalar!("select count(*) from wifi")
                 .fetch_one(&pool)
-                .await?,
+                .await?
+                .unwrap_or_default(),
             total_cell: query_scalar!("select count(*) from cell")
                 .fetch_one(&pool)
-                .await?,
+                .await?
+                .unwrap_or_default(),
             total_bluetooth: query_scalar!("select count(*) from bluetooth")
                 .fetch_one(&pool)
-                .await?,
+                .await?
+                .unwrap_or_default(),
             total_countries: query_scalar!("select count(distinct country) from cell")
                 .fetch_one(&pool)
-                .await?,
+                .await?
+                .unwrap_or_default(),
         };
 
         let data = serde_json::to_string_pretty(&stats)?;
