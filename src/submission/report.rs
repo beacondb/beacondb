@@ -13,12 +13,9 @@ use crate::model::{CellRadio, Transmitter};
 struct Report {
     timestamp: u64,
     position: Position,
-    #[serde(default)]
-    cell_towers: Vec<Cell>,
-    #[serde(default)]
-    wifi_access_points: Vec<Wifi>,
-    #[serde(default)]
-    bluetooth_beacons: Vec<Bluetooth>,
+    cell_towers: Option<Vec<Cell>>,
+    wifi_access_points: Option<Vec<Wifi>>,
+    bluetooth_beacons: Option<Vec<Bluetooth>>,
 }
 
 #[derive(Deserialize)]
@@ -68,7 +65,7 @@ pub fn extract(raw: &str) -> Result<(Position, Vec<Transmitter>)> {
     let parsed: Report = serde_json::from_str(raw)?;
 
     let mut txs = Vec::new();
-    for cell in parsed.cell_towers {
+    for cell in parsed.cell_towers.unwrap_or_default() {
         if cell.mobile_country_code == 0
                 // || cell.mobile_network_code == 0 // this is valid
                 || cell.location_area_code == 0
@@ -93,7 +90,7 @@ pub fn extract(raw: &str) -> Result<(Position, Vec<Transmitter>)> {
             unit: cell.primary_scrambling_code as i16,
         })
     }
-    for wifi in parsed.wifi_access_points {
+    for wifi in parsed.wifi_access_points.unwrap_or_default() {
         // ignore hidden networks
         let ssid = wifi
             .ssid
@@ -105,7 +102,7 @@ pub fn extract(raw: &str) -> Result<(Position, Vec<Transmitter>)> {
             });
         }
     }
-    for bt in parsed.bluetooth_beacons {
+    for bt in parsed.bluetooth_beacons.unwrap_or_default() {
         txs.push(Transmitter::Bluetooth {
             mac: bt.mac_address,
         })
