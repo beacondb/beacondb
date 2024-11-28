@@ -1,5 +1,7 @@
+use std::collections::BTreeSet;
+
 use actix_web::{error::ErrorInternalServerError, post, web, HttpResponse};
-use geo::{Haversine, Distance};
+use geo::{Distance, Haversine};
 use mac_address::MacAddress;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -94,7 +96,12 @@ pub async fn service(
     let mut rw = 0.0;
     let mut ww = 0.0;
     let mut c = 0;
+    let mut seen = BTreeSet::new();
     for x in data.wifi_access_points {
+        if !seen.insert(x.mac_address) {
+            continue;
+        }
+
         let signal = match x.signal_strength.unwrap_or_default() {
             0 => -80,
             -50..=0 => -50,
