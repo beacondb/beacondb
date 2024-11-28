@@ -96,7 +96,7 @@ pub fn extract(raw: &str) -> Result<(Position, Vec<Transmitter>)> {
             .ssid
             .map(|x| x.replace('\0', ""))
             .filter(|x| !x.is_empty());
-        if ssid.is_some_and(|x| !x.contains("_nomap") && !x.contains("_output")) {
+        if ssid.is_some_and(|x| !x.contains("_nomap") && !x.contains("_optout")) {
             txs.push(Transmitter::Wifi {
                 mac: wifi.mac_address,
             });
