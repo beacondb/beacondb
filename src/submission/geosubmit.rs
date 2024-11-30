@@ -79,7 +79,7 @@ async fn insert(
             report.position.latitude,
             report.position.longitude,
             user_agent,
-            serde_json::to_string(&report)?,
+            serde_json::to_vec(&report)?,
         ).execute(&mut *tx).await?;
     }
 

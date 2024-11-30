@@ -61,8 +61,8 @@ struct Bluetooth {
     mac_address: MacAddress,
 }
 
-pub fn extract(raw: &str) -> Result<(Position, Vec<Transmitter>)> {
-    let parsed: Report = serde_json::from_str(raw)?;
+pub fn extract(raw: &[u8]) -> Result<(Position, Vec<Transmitter>)> {
+    let parsed: Report = serde_json::from_slice(raw)?;
 
     let mut txs = Vec::new();
     for cell in parsed.cell_towers.unwrap_or_default() {

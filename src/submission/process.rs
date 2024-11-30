@@ -16,7 +16,7 @@ pub async fn run(pool: PgPool, stats_path: Option<&Path>) -> Result<()> {
     while let Some(report) = reports.try_next().await? {
         // TODO: parsing failures should be noted
         let result = super::report::extract(&report.raw)
-            .with_context(|| format!("Failed to parse report #{}: {}", report.id, &report.raw));
+            .with_context(|| format!("Failed to parse report #{}", report.id));
         let (pos, txs) = match result {
             Ok(x) => x,
             Err(e) => {

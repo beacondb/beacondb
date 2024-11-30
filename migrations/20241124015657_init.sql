@@ -10,7 +10,7 @@ create table report (
     unique (timestamp, latitude, longitude),
     
     user_agent text,
-    raw text not null
+    raw bytea not null
 );
 
 create index report_processed_at on report (processed_at);
