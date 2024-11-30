@@ -9,15 +9,14 @@ use crate::{bounds::Bounds, model::Transmitter};
 
 pub async fn run(pool: PgPool, stats_path: Option<&Path>) -> Result<()> {
     let mut reports =
-        query!("select id, raw from submission where processed_at is null order by id")
-            .fetch(&pool);
+        query!("select id, raw from report where processed_at is null order by id").fetch(&pool);
     let mut modified: BTreeMap<Transmitter, Bounds> = BTreeMap::new();
     let mut tx = pool.begin().await?;
 
-    while let Some(next) = reports.try_next().await? {
+    while let Some(report) = reports.try_next().await? {
         // TODO: parsing failures should be noted
-        let result = super::report::extract(&next.raw)
-            .with_context(|| format!("Failed to parse report #{}: {}", next.id, &next.raw));
+        let result = super::report::extract(&report.raw)
+            .with_context(|| format!("Failed to parse report #{}: {}", report.id, &report.raw));
         let (pos, txs) = match result {
             Ok(x) => x,
             Err(e) => {
@@ -37,8 +36,8 @@ pub async fn run(pool: PgPool, stats_path: Option<&Path>) -> Result<()> {
         }
 
         query!(
-            "update submission set processed_at = now() where id = $1",
-            next.id
+            "update report set processed_at = now() where id = $1",
+            report.id
         )
         .execute(&mut *tx)
         .await?;

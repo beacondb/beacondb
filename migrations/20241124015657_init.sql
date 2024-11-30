@@ -1,4 +1,4 @@
-create table submission (
+create table report (
     id serial not null primary key,
     submitted_at timestamp with time zone not null default now(),
     processed_at timestamp with time zone,
@@ -13,7 +13,7 @@ create table submission (
     raw text not null
 );
 
-create index submission_processed_at on submission (processed_at);
+create index report_processed_at on report (processed_at);
 
 create table cell (
     radio smallint not null,

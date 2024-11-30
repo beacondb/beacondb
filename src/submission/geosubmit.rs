@@ -74,7 +74,7 @@ async fn insert(
         // Ignore reports for (-1,-1) to (1, 1)
         !(r.position.latitude.abs() <= 1. && r.position.longitude.abs() <= 1.)
     }) {
-        query!("insert into submission (timestamp, latitude, longitude, user_agent, raw) values ($1, $2, $3, $4, $5) on conflict do nothing",
+        query!("insert into report (timestamp, latitude, longitude, user_agent, raw) values ($1, $2, $3, $4, $5) on conflict do nothing",
             report.timestamp,
             report.position.latitude,
             report.position.longitude,
