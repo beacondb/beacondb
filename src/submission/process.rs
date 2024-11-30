@@ -14,13 +14,23 @@ pub async fn run(pool: PgPool, stats_path: Option<&Path>) -> Result<()> {
     let mut tx = pool.begin().await?;
 
     while let Some(report) = reports.try_next().await? {
-        // TODO: parsing failures should be noted
-        let result = super::report::extract(&report.raw)
-            .with_context(|| format!("Failed to parse report #{}", report.id));
-        let (pos, txs) = match result {
+        query!(
+            "update report set processed_at = now() where id = $1",
+            report.id
+        )
+        .execute(&mut *tx)
+        .await?;
+
+        let (pos, txs) = match super::report::extract(&report.raw) {
             Ok(x) => x,
             Err(e) => {
-                println!("{e}");
+                query!(
+                    "update report set processing_error = $1 where id = $2",
+                    format!("{e}"),
+                    report.id
+                )
+                .execute(&mut *tx)
+                .await?;
                 continue;
             }
         };
@@ -34,13 +44,6 @@ pub async fn run(pool: PgPool, stats_path: Option<&Path>) -> Result<()> {
                 modified.insert(x, Bounds::new(pos.latitude, pos.longitude));
             }
         }
-
-        query!(
-            "update report set processed_at = now() where id = $1",
-            report.id
-        )
-        .execute(&mut *tx)
-        .await?;
     }
 
     println!("writing");

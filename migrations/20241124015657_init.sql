@@ -2,6 +2,7 @@ create table report (
     id serial not null primary key,
     submitted_at timestamp with time zone not null default now(),
     processed_at timestamp with time zone,
+    processing_error text,
 
     -- prevent duplicate reports
     timestamp timestamp with time zone not null,
@@ -13,7 +14,9 @@ create table report (
     raw bytea not null
 );
 
+create index report_todo on report (submitted_at) where processed_at is null;
 create index report_processed_at on report (processed_at);
+create index report_error on report (id) where processing_error is not null;
 
 create table cell (
     radio smallint not null,
