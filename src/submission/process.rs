@@ -9,11 +9,13 @@ use crate::{bounds::Bounds, model::Transmitter};
 
 pub async fn run(pool: PgPool, stats_path: Option<&Path>) -> Result<()> {
     loop {
+        println!("begin");
         let mut tx = pool.begin().await?;
         let mut reports =
             query!("select id, raw from report where processed_at is null order by id limit 10000")
                 .fetch_all(&mut *tx)
                 .await?;
+        println!("got reports");
         let mut modified: BTreeMap<Transmitter, Bounds> = BTreeMap::new();
 
         let last_report_in_batch = if let Some(report) = reports.last() {
