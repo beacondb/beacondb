@@ -1,24 +1,19 @@
 {
-  "db_name": "MySQL",
+  "db_name": "PostgreSQL",
   "query": "select count(*) from wifi",
   "describe": {
     "columns": [
       {
         "ordinal": 0,
-        "name": "count(*)",
-        "type_info": {
-          "type": "LongLong",
-          "flags": "NOT_NULL | BINARY",
-          "char_set": 63,
-          "max_size": 21
-        }
+        "name": "count",
+        "type_info": "Int8"
       }
     ],
     "parameters": {
-      "Right": 0
+      "Left": []
     },
     "nullable": [
-      false
+      null
     ]
   },
   "hash": "5da5963b0ecb09401cacd118a5693bec369f17599e53e5ec7c800d5a5f817076"

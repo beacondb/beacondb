@@ -1,24 +1,19 @@
 {
-  "db_name": "MySQL",
+  "db_name": "PostgreSQL",
   "query": "select count(*) from cell",
   "describe": {
     "columns": [
       {
         "ordinal": 0,
-        "name": "count(*)",
-        "type_info": {
-          "type": "LongLong",
-          "flags": "NOT_NULL | BINARY",
-          "char_set": 63,
-          "max_size": 21
-        }
+        "name": "count",
+        "type_info": "Int8"
       }
     ],
     "parameters": {
-      "Right": 0
+      "Left": []
     },
     "nullable": [
-      false
+      null
     ]
   },
   "hash": "04141d478600bf63ba7a2718f68a703cad4c8f95d7f55aa7063df868eef8f49d"

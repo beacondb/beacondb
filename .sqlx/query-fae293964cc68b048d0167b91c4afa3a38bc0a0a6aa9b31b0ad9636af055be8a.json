@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update report set processing_error = $1 where id = $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "fae293964cc68b048d0167b91c4afa3a38bc0a0a6aa9b31b0ad9636af055be8a"
+}

@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select min_lat, min_lon, max_lat, max_lon from wifi where mac = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "min_lat",
+        "type_info": "Float8"
+      },
+      {
+        "ordinal": 1,
+        "name": "min_lon",
+        "type_info": "Float8"
+      },
+      {
+        "ordinal": 2,
+        "name": "max_lat",
+        "type_info": "Float8"
+      },
+      {
+        "ordinal": 3,
+        "name": "max_lon",
+        "type_info": "Float8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Macaddr"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "42539ae5a5978f19821222a26871699014c611f380b5cd4cbf84af9f7c30d770"
+}

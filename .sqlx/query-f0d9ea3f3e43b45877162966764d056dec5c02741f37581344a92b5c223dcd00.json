@@ -1,0 +1,18 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into report (timestamp, latitude, longitude, user_agent, raw) values ($1, $2, $3, $4, $5) on conflict do nothing",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Timestamptz",
+        "Float8",
+        "Float8",
+        "Text",
+        "Bytea"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "f0d9ea3f3e43b45877162966764d056dec5c02741f37581344a92b5c223dcd00"
+}

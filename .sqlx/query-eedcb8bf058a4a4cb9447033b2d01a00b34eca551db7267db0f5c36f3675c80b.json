@@ -1,0 +1,38 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select lat, lon, radius from mls_cell where radio = $1 and country = $2 and network = $3 and area = $4 and cell = $5",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "lat",
+        "type_info": "Float8"
+      },
+      {
+        "ordinal": 1,
+        "name": "lon",
+        "type_info": "Float8"
+      },
+      {
+        "ordinal": 2,
+        "name": "radius",
+        "type_info": "Float8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int2",
+        "Int2",
+        "Int2",
+        "Int4",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "eedcb8bf058a4a4cb9447033b2d01a00b34eca551db7267db0f5c36f3675c80b"
+}

@@ -1,0 +1,44 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select min_lat, min_lon, max_lat, max_lon from cell where radio = $1 and country = $2 and network = $3 and area = $4 and cell = $5",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "min_lat",
+        "type_info": "Float8"
+      },
+      {
+        "ordinal": 1,
+        "name": "min_lon",
+        "type_info": "Float8"
+      },
+      {
+        "ordinal": 2,
+        "name": "max_lat",
+        "type_info": "Float8"
+      },
+      {
+        "ordinal": 3,
+        "name": "max_lon",
+        "type_info": "Float8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int2",
+        "Int2",
+        "Int2",
+        "Int4",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "87769b3ae2160883bae04ea033baf0aa2efec8b3d860808da6b817e80537d89f"
+}

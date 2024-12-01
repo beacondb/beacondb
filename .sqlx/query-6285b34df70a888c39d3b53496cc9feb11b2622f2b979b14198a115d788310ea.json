@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update report set processed_at = now() where id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "6285b34df70a888c39d3b53496cc9feb11b2622f2b979b14198a115d788310ea"
+}
