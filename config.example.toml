@@ -1,6 +1,10 @@
 database_url = "postgres:///beacondb"
 http_port = 8099
 
+[geoip]
+ipv4_path = "sources/ipv4-num.csv"
+ipv6_path = "sources/ipv6-num.csv"
+
 [stats]
 path = "stats.json"
 archived_reports = 0
