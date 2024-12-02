@@ -6,11 +6,14 @@ use std::{
 use anyhow::{Context, Result};
 use serde::Deserialize;
 
+use crate::geoip::GeoIpConfig;
+
 #[derive(Deserialize)]
 pub struct Config {
     pub database_url: String,
     pub http_port: u16,
 
+    pub geoip: Option<GeoIpConfig>,
     pub stats: Option<StatsConfig>,
 }
 

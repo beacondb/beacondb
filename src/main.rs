@@ -1,12 +1,17 @@
-use std::path::{Path, PathBuf};
+use std::{
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 
 use actix_web::{web, App, HttpServer};
 use anyhow::Result;
 use clap::{Parser, Subcommand};
+use geoip::IpAddrMap;
 use sqlx::PgPool;
 
 mod bounds;
 mod config;
+mod geoip;
 mod geolocate;
 mod map;
 mod mls;
@@ -45,10 +50,17 @@ async fn main() -> Result<()> {
 
     match cli.command {
         Command::Serve { port } => {
+            let ipmap = match config.geoip {
+                Some(config) => Some(Arc::new(IpAddrMap::load(config)?)),
+                None => None,
+            };
+
             HttpServer::new(move || {
                 App::new()
                     .app_data(web::Data::new(pool.clone()))
                     .app_data(web::JsonConfig::default().limit(500 * 1024 * 1024))
+                    .app_data(web::Data::new(ipmap.clone()))
+                    .service(geoip::country_service)
                     .service(geolocate::service)
                     .service(submission::geosubmit::service)
             })
