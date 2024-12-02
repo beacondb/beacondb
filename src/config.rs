@@ -10,7 +10,17 @@ use serde::Deserialize;
 pub struct Config {
     pub database_url: String,
     pub http_port: u16,
-    pub stats_path: Option<PathBuf>,
+
+    pub stats: Option<StatsConfig>,
+}
+
+#[derive(Deserialize)]
+pub struct StatsConfig {
+    pub path: PathBuf,
+
+    // amount of reports that aren't stored in the database but should still
+    // be added to the total count
+    pub archived_reports: i64,
 }
 
 pub fn load(path: &Path) -> Result<Config> {

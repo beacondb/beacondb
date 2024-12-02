@@ -5,9 +5,9 @@ use futures::{StreamExt, TryStreamExt};
 use serde::Serialize;
 use sqlx::{query, query_scalar, PgPool};
 
-use crate::{bounds::Bounds, model::Transmitter};
+use crate::{bounds::Bounds, config::StatsConfig, model::Transmitter};
 
-pub async fn run(pool: PgPool, stats_path: Option<&Path>) -> Result<()> {
+pub async fn run(pool: PgPool, config: Option<&StatsConfig>) -> Result<()> {
     loop {
         let mut tx = pool.begin().await?;
         let mut reports =
@@ -108,7 +108,7 @@ pub async fn run(pool: PgPool, stats_path: Option<&Path>) -> Result<()> {
         eprintln!("processed reports up to #{last_report_in_batch} - {modified_count} transmitters modified");
     }
 
-    if let Some(path) = stats_path {
+    if let Some(config) = config {
         let stats = Stats {
             total_wifi: query_scalar!("select count(*) from wifi")
                 .fetch_one(&pool)
@@ -126,10 +126,15 @@ pub async fn run(pool: PgPool, stats_path: Option<&Path>) -> Result<()> {
                 .fetch_one(&pool)
                 .await?
                 .unwrap_or_default(),
+            total_reports: config.archived_reports
+                + query_scalar!("select count(*) from report")
+                    .fetch_one(&pool)
+                    .await?
+                    .unwrap_or_default(),
         };
 
         let data = serde_json::to_string_pretty(&stats)?;
-        fs::write(path, data)?;
+        fs::write(&config.path, data)?;
     }
 
     Ok(())
@@ -141,4 +146,5 @@ struct Stats {
     total_cell: i64,
     total_bluetooth: i64,
     total_countries: i64,
+    total_reports: i64,
 }

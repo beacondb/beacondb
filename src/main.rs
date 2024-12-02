@@ -58,7 +58,7 @@ async fn main() -> Result<()> {
         }
 
         Command::FormatMls => mls::format()?,
-        Command::Process => submission::process::run(pool, config.stats_path.as_deref()).await?,
+        Command::Process => submission::process::run(pool, config.stats.as_ref()).await?,
         Command::Map => map::run()?,
     }
 

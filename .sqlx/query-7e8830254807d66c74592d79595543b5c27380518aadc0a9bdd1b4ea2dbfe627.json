@@ -1,0 +1,20 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select count(*) from report",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "count",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "7e8830254807d66c74592d79595543b5c27380518aadc0a9bdd1b4ea2dbfe627"
+}
