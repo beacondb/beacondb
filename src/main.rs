@@ -6,7 +6,8 @@ use std::{
 use actix_web::{web, App, HttpServer};
 use anyhow::Result;
 use clap::{Parser, Subcommand};
-use geoip::IpAddrMap;
+use geoip::GeoIpDatabase;
+// use geoip::IpAddrMap;
 use sqlx::PgPool;
 
 mod bounds;
@@ -50,8 +51,8 @@ async fn main() -> Result<()> {
 
     match cli.command {
         Command::Serve { port } => {
-            let ipmap = match config.geoip {
-                Some(config) => Some(Arc::new(IpAddrMap::load(config)?)),
+            let geoip = match config.geoip {
+                Some(config) => Some(Arc::new(GeoIpDatabase::load(config)?)),
                 None => None,
             };
 
@@ -59,7 +60,7 @@ async fn main() -> Result<()> {
                 App::new()
                     .app_data(web::Data::new(pool.clone()))
                     .app_data(web::JsonConfig::default().limit(500 * 1024 * 1024))
-                    .app_data(web::Data::new(ipmap.clone()))
+                    .app_data(web::Data::new(geoip.clone()))
                     .service(geoip::country_service)
                     .service(geolocate::service)
                     .service(submission::geosubmit::service)
