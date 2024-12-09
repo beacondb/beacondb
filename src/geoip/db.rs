@@ -30,12 +30,9 @@ struct RawRecord {
     longitude: f64,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug)]
 pub struct Record {
-    pub continent: String,
-    pub country: String,
-    pub state: String,
-    pub city: String,
+    pub country: Country,
     pub latitude: f64,
     pub longitude: f64,
 }
@@ -61,11 +58,14 @@ impl GeoIpDatabase {
                 latitude,
                 longitude,
             } = result?;
+            // println!("{country},{latitude},{longitude}");
+
+            if country == "ZZ" {
+                continue;
+            }
+            let country = Country::from_str(&country)?;
             let record = Record {
-                continent,
                 country,
-                state,
-                city,
                 latitude,
                 longitude,
             };

@@ -43,8 +43,8 @@ pub async fn country_service(
 
     if let Some(country) = geoip.as_deref().and_then(|x| x.lookup(ip)) {
         Ok(HttpResponse::Ok().json(json!({
-            "country_code": country.country,
-            "country_name": country.country,
+            "country_code": country.country.as_ref(),
+            "country_name": country.country.name(),
             "fallback": "ipf"
         })))
     } else {
