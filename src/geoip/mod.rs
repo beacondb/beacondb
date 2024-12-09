@@ -24,6 +24,8 @@ pub struct GeoIpConfig {
     path: PathBuf,
 }
 
+pub const ATTRIBUTION: &str = include_str!("attribution.md");
+
 #[post("/v1/country")]
 pub async fn country_service(
     geoip: web::Data<Option<Arc<GeoIpDatabase>>>,
@@ -43,6 +45,7 @@ pub async fn country_service(
 
     if let Some(country) = geoip.as_deref().and_then(|x| x.lookup(ip)) {
         Ok(HttpResponse::Ok().json(json!({
+            "_attribution": ATTRIBUTION,
             "country_code": country.country.as_ref(),
             "country_name": country.country.name(),
             "fallback": "ipf"
