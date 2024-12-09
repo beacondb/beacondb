@@ -1,13 +1,15 @@
-use std::collections::BTreeSet;
+use std::{collections::BTreeSet, str::FromStr};
 
-use actix_web::{error::ErrorInternalServerError, post, web, HttpResponse};
+use actix_web::{error::ErrorInternalServerError, post, web, HttpRequest, HttpResponse};
+use anyhow::Context;
 use geo::{Distance, Haversine};
+use ipnetwork::IpNetwork;
 use mac_address::MacAddress;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use sqlx::{query, query_as, PgPool};
+use sqlx::{query, query_as, query_file, PgPool};
 
-use crate::{bounds::Bounds, model::CellRadio};
+use crate::{bounds::Bounds, geoip::Country, model::CellRadio};
 
 #[derive(Debug, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
@@ -16,6 +18,14 @@ struct LocationRequest {
     cell_towers: Vec<CellTower>,
     #[serde(default)]
     wifi_access_points: Vec<AccessPoint>,
+
+    consider_ip: Option<bool>,
+    fallbacks: Option<FallbackOptions>,
+}
+
+#[derive(Debug, Deserialize, Default)]
+struct FallbackOptions {
+    ipf: Option<bool>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -75,19 +85,12 @@ struct Location {
     lng: f64,
 }
 
-#[derive(Debug, Deserialize)]
-struct Options {
-    #[serde(default)]
-    force_ok: bool,
-}
-
 #[post("/v1/geolocate")]
 pub async fn service(
-    options: web::Query<Options>,
     data: Option<web::Json<LocationRequest>>,
     pool: web::Data<PgPool>,
+    req: HttpRequest,
 ) -> actix_web::Result<HttpResponse> {
-    let options = options.into_inner();
     let data = data.map(|x| x.into_inner()).unwrap_or_default();
     let pool = pool.into_inner();
 
@@ -179,21 +182,44 @@ pub async fn service(
         }
     }
 
-    if options.force_ok {
-        LocationResponse::new(0.0, 0.0, 1234.5).respond()
-    } else {
-        Ok(HttpResponse::NotFound().json(json!(
-            {
-                "error": {
-                    "errors": [{
-                        "domain": "geolocation",
-                        "reason": "notFound",
-                        "message": "No location could be estimated based on the data provided",
-                    }],
-                    "code": 404,
-                    "message": "Not found",
-                }
-            }
-        )))
+    let consider_ip =
+        data.consider_ip.unwrap_or(true) && data.fallbacks.unwrap_or_default().ipf.unwrap_or(true);
+    if consider_ip {
+        let ip = req
+            .headers()
+            .get("X-Forwarded-For")
+            .and_then(|x| x.to_str().ok())
+            .and_then(|x| IpNetwork::from_str(x).ok())
+            .context("failed to get client ip address")
+            .map_err(ErrorInternalServerError)?;
+        if let Some(record) = query_file!("src/geoip/lookup.sql", ip)
+            .fetch_optional(&*pool)
+            .await
+            .map_err(ErrorInternalServerError)?
+        {
+            return Ok(HttpResponse::Ok().json(json!({
+                "license": crate::geoip::LICENSE,
+                "location": {
+                    "lat": record.latitude,
+                    "lng": record.longitude,
+                },
+                "accuracy": 25_000,
+                "fallback": "ipf"
+            })));
+        }
     }
+
+    Ok(HttpResponse::NotFound().json(json!(
+        {
+            "error": {
+                "errors": [{
+                    "domain": "geolocation",
+                    "reason": "notFound",
+                    "message": "No location could be estimated based on the data provided",
+                }],
+                "code": 404,
+                "message": "Not found",
+            }
+        }
+    )))
 }
