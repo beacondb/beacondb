@@ -2,7 +2,9 @@ use strum::{AsRefStr, Display, EnumString, IntoStaticStr};
 
 // https://github.com/annexare/Countries/blob/main/dist/countries.min.json
 
-#[derive(Debug, Clone, Copy, Display, EnumString, AsRefStr, IntoStaticStr)]
+#[derive(
+    Debug, Clone, Copy, Display, EnumString, AsRefStr, IntoStaticStr, PartialEq, Eq, PartialOrd, Ord,
+)]
 pub enum Country {
     AD,
     AE,

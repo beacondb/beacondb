@@ -385,6 +385,7 @@ dependencies = [
  "geo-types",
  "geojson",
  "h3o",
+ "ipnetwork",
  "mac_address",
  "nodit",
  "serde",
@@ -393,6 +394,7 @@ dependencies = [
  "strum",
  "tokio",
  "toml",
+ "typed_floats",
 ]
 
 [[package]]
@@ -1302,6 +1304,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "ipnetwork"
+version = "0.20.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bf466541e9d546596ee94f9f69590f89473455f88372423e0008fc1a7daf100e"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "is_terminal_polyfill"
 version = "1.70.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2107,6 +2118,7 @@ dependencies = [
  "hashlink",
  "hex",
  "indexmap",
+ "ipnetwork",
  "log",
  "mac_address",
  "memchr",
@@ -2229,6 +2241,7 @@ dependencies = [
  "hkdf",
  "hmac",
  "home",
+ "ipnetwork",
  "itoa",
  "log",
  "mac_address",
@@ -2549,6 +2562,27 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c06d3da6113f116aaee68e4d601191614c9053067f9ab7f6edbcb161237daa54"
 dependencies = [
  "once_cell",
+]
+
+[[package]]
+name = "typed_floats"
+version = "1.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0175e2d0df9474eb6a9847583d8b2c8108ba6120b847bcdbd8ab87e33002ba37"
+dependencies = [
+ "serde",
+ "typed_floats_macros",
+]
+
+[[package]]
+name = "typed_floats_macros"
+version = "1.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c407bfc1557478e1a29cb3bf89b10064da1080488519c26a163a01725e56612e"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.66",
 ]
 
 [[package]]

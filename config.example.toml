@@ -1,9 +1,6 @@
 database_url = "postgres:///beacondb"
 http_port = 8099
 
-[geoip]
-path = "sources/dbip-city-lite.csv"
-
 [stats]
 path = "stats.json"
 archived_reports = 0

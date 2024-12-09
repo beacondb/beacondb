@@ -6,8 +6,6 @@ use std::{
 use actix_web::{web, App, HttpServer};
 use anyhow::Result;
 use clap::{Parser, Subcommand};
-use geoip::GeoIpDatabase;
-// use geoip::IpAddrMap;
 use sqlx::PgPool;
 
 mod bounds;
@@ -30,10 +28,11 @@ struct Cli {
 
 #[derive(Debug, Subcommand)]
 enum Command {
-    FormatMls,
     Serve { port: Option<u16> },
     Process,
     Map,
+    FormatMls,
+    ImportGeoip,
 }
 
 #[tokio::main]
@@ -51,16 +50,10 @@ async fn main() -> Result<()> {
 
     match cli.command {
         Command::Serve { port } => {
-            let geoip = match config.geoip {
-                Some(config) => Some(Arc::new(GeoIpDatabase::load(config)?)),
-                None => None,
-            };
-
             HttpServer::new(move || {
                 App::new()
                     .app_data(web::Data::new(pool.clone()))
                     .app_data(web::JsonConfig::default().limit(500 * 1024 * 1024))
-                    .app_data(web::Data::new(geoip.clone()))
                     .service(geoip::country_service)
                     .service(geolocate::service)
                     .service(submission::geosubmit::service)
@@ -70,10 +63,12 @@ async fn main() -> Result<()> {
             .await?;
         }
 
-        Command::FormatMls => mls::format()?,
         Command::Process => submission::process::run(pool, config.stats.as_ref()).await?,
         Command::Map => map::run()?,
-    }
+
+        Command::ImportGeoip => geoip::import::run(pool).await?,
+        Command::FormatMls => mls::format()?,
+    };
 
     Ok(())
 }

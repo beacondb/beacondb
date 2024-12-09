@@ -9,6 +9,3 @@ stats.json
 *.geojson
 
 .idea
-
-sources/*
-!sources/*.sh

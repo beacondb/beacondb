@@ -15,14 +15,16 @@ geo = "0.29.2"
 geo-types = "0.7.14"
 geojson = { version = "0.24.1", features = ["geo-types"] }
 h3o = { version = "0.7.0", features = ["geo"] }
+ipnetwork = "0.20.0"
 mac_address = { version = "1.1.7", features = ["serde"] }
 nodit = "0.9.2"
 serde = { version = "1.0.203", features = ["derive"] }
 serde_json = "1.0.117"
-sqlx = { version = "0.7.4", features = ["chrono", "postgres", "runtime-tokio", "macros", "mac_address"] }
+sqlx = { version = "0.7.4", features = ["chrono", "postgres", "runtime-tokio", "macros", "mac_address", "ipnetwork"] }
 strum = { version = "0.26.3", features = ["derive"] }
 tokio = { version = "1.38.0", features = ["macros", "rt-multi-thread"] }
 toml = "0.8.14"
+typed_floats = { version = "1.0.2", features = ["serde"] }
 
 [lints.rust]
 unused = { level = "allow", priority = -1 }
