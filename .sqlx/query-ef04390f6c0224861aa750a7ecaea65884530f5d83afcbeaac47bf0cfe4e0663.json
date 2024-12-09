@@ -1,0 +1,18 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into geoip (cidr, range_start, range_end, country, latitude, longitude) values (inet_merge($1, $2), $1, $2, $3, $4, $5)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Inet",
+        "Inet",
+        "Bpchar",
+        "Float8",
+        "Float8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "ef04390f6c0224861aa750a7ecaea65884530f5d83afcbeaac47bf0cfe4e0663"
+}
