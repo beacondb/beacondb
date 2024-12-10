@@ -1,30 +1,28 @@
 use std::{collections::BTreeSet, fs, io};
 
 use anyhow::Result;
+use futures::TryStreamExt;
 use geo_types::MultiPolygon;
 use geojson::Geometry;
-use h3o::{geom::dissolve, LatLng, Resolution};
+use h3o::{geom::dissolve, CellIndex, LatLng, Resolution};
+use sqlx::{query, query_scalar, PgPool};
 
 pub const RESOLUTION: Resolution = Resolution::Eight;
 
-pub fn run() -> Result<()> {
-    let mut reader = io::stdin();
-    let mut cells = BTreeSet::new();
-    for result in reader.lines() {
-        let line = result?;
-        let (lat, lon) = line.trim().split_once('\t').unwrap();
-        let lat: f64 = lat.parse()?;
-        let lon: f64 = lon.parse()?;
-        let loc = LatLng::new(lat, lon)?;
-        let cell = loc.to_cell(RESOLUTION);
-        cells.insert(cell);
+pub async fn run(pool: PgPool) -> Result<()> {
+    let mut q = query_scalar!("select h3 from map").fetch(&pool);
+    let mut cells = Vec::new();
+    while let Some(x) = q.try_next().await? {
+        assert_eq!(x.len(), 8);
+        let x: [u8; 8] = x.try_into().unwrap();
+        let x = u64::from_be_bytes(x);
+        let x = CellIndex::try_from(x)?;
+        cells.push(x);
     }
 
-    let multi_polygon: MultiPolygon = dissolve(cells)?;
-    let geom = Geometry::from(&multi_polygon);
-
-    let name = format!("{}.geojson", RESOLUTION as u8);
-    fs::write(name, geom.to_string())?;
+    let poly = dissolve(cells)?;
+    let geom = Geometry::new((&poly).into());
+    println!("{}", geom.to_string());
 
     Ok(())
 }
