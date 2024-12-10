@@ -76,5 +76,8 @@ create table geoip (
 create index geoip_range on geoip using gist (cidr inet_ops);
 
 create table map (
-    h3 bytea not null primary key
+    h3 bytea not null primary key,
+    new boolean not null default true
 );
+
+create index on map (h3) where new;
