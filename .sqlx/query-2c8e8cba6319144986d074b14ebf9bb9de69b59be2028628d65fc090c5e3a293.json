@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into map (h3) values ($1) on conflict (h3) do nothing",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Bytea"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "2c8e8cba6319144986d074b14ebf9bb9de69b59be2028628d65fc090c5e3a293"
+}

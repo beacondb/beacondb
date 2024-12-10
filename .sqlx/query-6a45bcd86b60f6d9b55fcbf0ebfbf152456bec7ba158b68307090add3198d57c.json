@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update map set new = false where h3 = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Bytea"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "6a45bcd86b60f6d9b55fcbf0ebfbf152456bec7ba158b68307090add3198d57c"
+}
