@@ -1,11 +1,11 @@
 use std::{collections::BTreeSet, fs, io};
 
 use anyhow::Result;
-use geojson::Geometry;
 use geo_types::MultiPolygon;
+use geojson::Geometry;
 use h3o::{geom::dissolve, LatLng, Resolution};
 
-const RESOLUTION: Resolution = Resolution::Eight;
+pub const RESOLUTION: Resolution = Resolution::Eight;
 
 pub fn run() -> Result<()> {
     let mut reader = io::stdin();

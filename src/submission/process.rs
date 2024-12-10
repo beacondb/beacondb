@@ -1,7 +1,12 @@
-use std::{collections::BTreeMap, fs, path::Path};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    fs,
+    path::Path,
+};
 
 use anyhow::{Context, Result};
 use futures::{StreamExt, TryStreamExt};
+use h3o::LatLng;
 use serde::Serialize;
 use sqlx::{query, query_scalar, PgPool};
 
@@ -15,6 +20,7 @@ pub async fn run(pool: PgPool, config: Option<&StatsConfig>) -> Result<()> {
                 .fetch_all(&mut *tx)
                 .await?;
         let mut modified: BTreeMap<Transmitter, Bounds> = BTreeMap::new();
+        let mut h3s = BTreeSet::new();
 
         let last_report_in_batch = if let Some(report) = reports.last() {
             report.id
@@ -59,6 +65,10 @@ pub async fn run(pool: PgPool, config: Option<&StatsConfig>) -> Result<()> {
                     modified.insert(x, Bounds::new(pos.latitude, pos.longitude));
                 }
             }
+
+            let pos = LatLng::new(pos.latitude, pos.longitude)?;
+            let h3 = pos.to_cell(crate::map::RESOLUTION);
+            h3s.insert(h3);
         }
 
         let modified_count = modified.len();
@@ -103,8 +113,18 @@ pub async fn run(pool: PgPool, config: Option<&StatsConfig>) -> Result<()> {
                 }
             }
         }
-        tx.commit().await?;
 
+        for h3 in h3s {
+            let h3_binary = u64::from(h3).to_be_bytes();
+            query!(
+                "insert into map (h3) values ($1) on conflict (h3) do nothing",
+                &h3_binary
+            )
+            .execute(&mut *tx)
+            .await?;
+        }
+
+        tx.commit().await?;
         eprintln!("processed reports up to #{last_report_in_batch} - {modified_count} transmitters modified");
     }
 
