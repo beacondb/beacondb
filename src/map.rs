@@ -11,12 +11,12 @@ pub const RESOLUTION: Resolution = Resolution::Eight;
 
 pub async fn run(pool: PgPool) -> Result<()> {
     let mut tx = pool.begin().await?;
-    let mut q = query_scalar!("select h3 from map where new").fetch(&pool);
+    let mut q = query_scalar!("select h3 from map").fetch(&pool);
     let mut features = Vec::new();
     while let Some(x) = q.try_next().await? {
-        query!("update map set new = false where h3 = $1", x)
-            .execute(&mut *tx)
-            .await?;
+        // query!("update map set new = false where h3 = $1", x)
+        //     .execute(&mut *tx)
+        //     .await?;
 
         assert_eq!(x.len(), 8);
         let x: [u8; 8] = x.try_into().unwrap();

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select h3 from map where new",
+  "query": "select h3 from map",
   "describe": {
     "columns": [
       {
@@ -16,5 +16,5 @@
       false
     ]
   },
-  "hash": "31cf95f87ade8bdc69b35c5fd3512cd9e1177511ddbc63105460fe51a7c358c3"
+  "hash": "a7b38ed790b1df8ff22381d55ed6c47638ad992c7a81ae4f174fd8b213372074"
 }
