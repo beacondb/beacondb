@@ -54,6 +54,10 @@ struct LocationResponse {
 
 impl LocationResponse {
     fn new(lat: f64, lon: f64, acc: f64) -> Self {
+        // round to 6 decimal places
+        let lat = (lat * 1_000_000.0).round() / 1_000_000.0;
+        let lon = (lon * 1_000_000.0).round() / 1_000_000.0;
+
         LocationResponse {
             location: Location { lat, lng: lon },
             accuracy: (acc.round() as i64).max(50),
