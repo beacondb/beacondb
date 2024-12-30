@@ -49,14 +49,14 @@ struct AccessPoint {
 #[derive(Debug, Serialize)]
 struct LocationResponse {
     location: Location,
-    accuracy: f64,
+    accuracy: i64,
 }
 
 impl LocationResponse {
     fn new(lat: f64, lon: f64, acc: f64) -> Self {
         LocationResponse {
             location: Location { lat, lng: lon },
-            accuracy: acc.max(50.0),
+            accuracy: (acc.round() as i64).max(50),
         }
     }
 
