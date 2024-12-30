@@ -28,7 +28,7 @@ struct Cli {
 
 #[derive(Debug, Subcommand)]
 enum Command {
-    Serve { port: Option<u16> },
+    Serve,
     Process,
     Map,
     FormatMls,
@@ -49,7 +49,7 @@ async fn main() -> Result<()> {
     sqlx::migrate!().run(&pool).await?;
 
     match cli.command {
-        Command::Serve { port } => {
+        Command::Serve => {
             HttpServer::new(move || {
                 App::new()
                     .app_data(web::Data::new(pool.clone()))
