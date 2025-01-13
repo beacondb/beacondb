@@ -7,8 +7,6 @@ use geojson::{FeatureCollection, Geometry};
 use h3o::{geom::dissolve, CellIndex, LatLng, Resolution};
 use sqlx::{query, query_scalar, PgPool};
 
-pub const RESOLUTION: Resolution = Resolution::Eight;
-
 pub async fn run(pool: PgPool) -> Result<()> {
     let mut tx = pool.begin().await?;
     let mut q = query_scalar!("select h3 from map").fetch(&pool);

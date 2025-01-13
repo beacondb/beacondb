@@ -10,6 +10,7 @@ use serde::Deserialize;
 pub struct Config {
     pub database_url: String,
     pub http_port: u16,
+    pub h3_resolution: u8,
 
     pub stats: Option<StatsConfig>,
 }

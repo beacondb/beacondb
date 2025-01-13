@@ -63,7 +63,7 @@ async fn main() -> Result<()> {
             .await?;
         }
 
-        Command::Process => submission::process::run(pool, config.stats.as_ref()).await?,
+        Command::Process => submission::process::run(pool, config).await?,
         Command::Map => map::run(pool).await?,
 
         Command::ImportGeoip => geoip::import::run(pool).await?,

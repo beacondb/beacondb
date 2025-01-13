@@ -9,10 +9,11 @@ use futures::{StreamExt, TryStreamExt};
 use h3o::LatLng;
 use serde::Serialize;
 use sqlx::{query, query_scalar, PgPool};
+use h3o::{Resolution};
 
-use crate::{bounds::Bounds, config::StatsConfig, model::Transmitter};
+use crate::{bounds::Bounds, config::Config, model::Transmitter};
 
-pub async fn run(pool: PgPool, config: Option<&StatsConfig>) -> Result<()> {
+pub async fn run(pool: PgPool, config: Config) -> Result<()> {
     loop {
         let mut tx = pool.begin().await?;
         let mut reports =
@@ -67,7 +68,7 @@ pub async fn run(pool: PgPool, config: Option<&StatsConfig>) -> Result<()> {
             }
 
             let pos = LatLng::new(pos.latitude, pos.longitude)?;
-            let h3 = pos.to_cell(crate::map::RESOLUTION);
+            let h3 = pos.to_cell(Resolution::try_from(config.h3_resolution)?);
             h3s.insert(h3);
         }
 
@@ -128,7 +129,7 @@ pub async fn run(pool: PgPool, config: Option<&StatsConfig>) -> Result<()> {
         eprintln!("processed reports up to #{last_report_in_batch} - {modified_count} transmitters modified");
     }
 
-    if let Some(config) = config {
+    if let Some(config_stats) = config.stats {
         let stats = Stats {
             total_wifi: query_scalar!("select count(*) from wifi")
                 .fetch_one(&pool)
@@ -146,7 +147,7 @@ pub async fn run(pool: PgPool, config: Option<&StatsConfig>) -> Result<()> {
                 .fetch_one(&pool)
                 .await?
                 .unwrap_or_default(),
-            total_reports: config.archived_reports
+            total_reports: config_stats.archived_reports
                 + query_scalar!("select count(*) from report")
                     .fetch_one(&pool)
                     .await?
@@ -154,7 +155,7 @@ pub async fn run(pool: PgPool, config: Option<&StatsConfig>) -> Result<()> {
         };
 
         let data = serde_json::to_string_pretty(&stats)?;
-        fs::write(&config.path, data)?;
+        fs::write(&config_stats.path, data)?;
     }
 
     Ok(())
