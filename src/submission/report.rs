@@ -30,12 +30,15 @@ struct Cell {
     radio_type: RadioType,
     mobile_country_code: u16,
     mobile_network_code: u16,
+    // NeoStumbler/18 send {"locationAreaCode":null}
     #[serde(default)]
-    location_area_code: u32, // u24 in db
+    location_area_code: Option<u32>, // u24 in db
+    // NeoStumbler/18 send {"cellId":null}
     #[serde(default)]
-    cell_id: u64,
+    cell_id: Option<u64>,
+    // NeoStumbler/18 send {"primaryScramblingCode":null}
     #[serde(default)]
-    primary_scrambling_code: u16,
+    primary_scrambling_code: Option<u16>,
 }
 
 #[derive(Deserialize)]
@@ -68,8 +71,9 @@ pub fn extract(raw: &[u8]) -> Result<(Position, Vec<Transmitter>)> {
     for cell in parsed.cell_towers.unwrap_or_default() {
         if cell.mobile_country_code == 0
                 // || cell.mobile_network_code == 0 // this is valid
-                || cell.location_area_code == 0
-                || cell.cell_id == 0
+                || cell.location_area_code.unwrap_or(0) == 0
+                || cell.cell_id.unwrap_or(0) == 0
+                || cell.primary_scrambling_code.is_none()
         {
             // TODO: reuse previous cell tower data
             continue;
@@ -85,9 +89,9 @@ pub fn extract(raw: &[u8]) -> Result<(Position, Vec<Transmitter>)> {
             // postgres uses signed integers
             country: cell.mobile_country_code as i16,
             network: cell.mobile_network_code as i16,
-            area: cell.location_area_code as i32,
-            cell: cell.cell_id as i64,
-            unit: cell.primary_scrambling_code as i16,
+            area: cell.location_area_code.unwrap() as i32,
+            cell: cell.cell_id.unwrap() as i64,
+            unit: cell.primary_scrambling_code.unwrap() as i16,
         })
     }
     for wifi in parsed.wifi_access_points.unwrap_or_default() {
