@@ -4,10 +4,6 @@ use serde::Deserialize;
 
 use crate::model::{CellRadio, Transmitter};
 
-// TODO: use the age value?
-// location interpolation should be client side imo, but that would require a
-// new submission format
-
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct Report {
@@ -22,6 +18,11 @@ struct Report {
 pub struct Position {
     pub latitude: f64,
     pub longitude: f64,
+    #[serde(default)]
+    pub speed: Option<f64>,
+    // Tower Collector does not send age field
+    #[serde(default)]
+    pub age: Option<u32>,
 }
 
 #[derive(Deserialize)]
@@ -39,6 +40,9 @@ struct Cell {
     // NeoStumbler/18 send {"primaryScramblingCode":null}
     #[serde(default)]
     primary_scrambling_code: Option<u16>,
+    // Tower Collector does not send age field
+    #[serde(default)]
+    age: Option<u32>,
 }
 
 #[derive(Deserialize)]
@@ -56,12 +60,37 @@ enum RadioType {
 struct Wifi {
     mac_address: MacAddress,
     ssid: Option<String>,
+    #[serde(default)]
+    age: Option<u32>,
 }
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct Bluetooth {
     mac_address: MacAddress,
+    #[serde(default)]
+    age: Option<u32>,
+}
+
+fn should_be_ignored(position: &Position, transmitter_age: Option<u32>) -> bool {
+    if let Some(transmitter_age) = transmitter_age {
+        if let Some(position_age) = position.age {
+            let position_transmitter_diff_age: u32 = position_age.abs_diff(transmitter_age);
+            // trasmitter is observed more than 30 seconds from position
+            // Since Neostumbler/18 (1.4.0), age is limited to 30 seconds, before it, the age is not limited
+            if position_transmitter_diff_age > 30_000 {
+                return true;
+            }
+
+            if position.speed.unwrap_or(0.0) * position_transmitter_diff_age as f64 > 150_000.0 {
+                return true;
+            }
+        }
+    }
+
+    // the age field is optional, so for now observations without an age are still considered valid.
+    // ideally with a future weighted algorithm observations with no age field have little weight / high uncertainty
+    false
 }
 
 pub fn extract(raw: &[u8]) -> Result<(Position, Vec<Transmitter>)> {
@@ -69,6 +98,9 @@ pub fn extract(raw: &[u8]) -> Result<(Position, Vec<Transmitter>)> {
 
     let mut txs = Vec::new();
     for cell in parsed.cell_towers.unwrap_or_default() {
+        if should_be_ignored(&parsed.position, cell.age) {
+            continue;
+        }
         if cell.mobile_country_code == 0
                 // || cell.mobile_network_code == 0 // this is valid
                 || cell.location_area_code.unwrap_or(0) == 0
@@ -95,6 +127,9 @@ pub fn extract(raw: &[u8]) -> Result<(Position, Vec<Transmitter>)> {
         })
     }
     for wifi in parsed.wifi_access_points.unwrap_or_default() {
+        if should_be_ignored(&parsed.position, wifi.age) {
+            continue;
+        }
         // ignore hidden networks
         let ssid = wifi
             .ssid
@@ -107,6 +142,9 @@ pub fn extract(raw: &[u8]) -> Result<(Position, Vec<Transmitter>)> {
         }
     }
     for bt in parsed.bluetooth_beacons.unwrap_or_default() {
+        if should_be_ignored(&parsed.position, bt.age) {
+            continue;
+        }
         txs.push(Transmitter::Bluetooth {
             mac: bt.mac_address,
         })
