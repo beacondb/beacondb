@@ -22,6 +22,8 @@ struct Report {
 pub struct Position {
     pub latitude: f64,
     pub longitude: f64,
+    pub speed: Option<f32>,
+    pub age: u32,
 }
 
 #[derive(Deserialize)]
@@ -39,6 +41,7 @@ struct Cell {
     // NeoStumbler/18 send {"primaryScramblingCode":null}
     #[serde(default)]
     primary_scrambling_code: Option<u16>,
+    age: u32,
 }
 
 #[derive(Deserialize)]
@@ -56,12 +59,24 @@ enum RadioType {
 struct Wifi {
     mac_address: MacAddress,
     ssid: Option<String>,
+    age: u32,
 }
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct Bluetooth {
     mac_address: MacAddress,
+    age: u32,
+}
+
+fn is_valid_transmitter_age(position: &Position, transmitter_age: u32) -> bool {
+    let position_transmitter_diff_age: u32 = position.age.abs_diff(transmitter_age);
+    // trasmitter is observed more than 30 seconds from position
+    if position_transmitter_diff_age > 30_000 {
+        return false;
+    }
+    // transmitter is observed more than 50m away from position
+    return position.speed.unwrap_or(0.0) * (position_transmitter_diff_age as f32) < 50_000.0;
 }
 
 pub fn extract(raw: &[u8]) -> Result<(Position, Vec<Transmitter>)> {
@@ -69,6 +84,9 @@ pub fn extract(raw: &[u8]) -> Result<(Position, Vec<Transmitter>)> {
 
     let mut txs = Vec::new();
     for cell in parsed.cell_towers.unwrap_or_default() {
+        if !is_valid_transmitter_age(&parsed.position, cell.age) {
+            continue;
+        }
         if cell.mobile_country_code == 0
                 // || cell.mobile_network_code == 0 // this is valid
                 || cell.location_area_code.unwrap_or(0) == 0
@@ -95,6 +113,9 @@ pub fn extract(raw: &[u8]) -> Result<(Position, Vec<Transmitter>)> {
         })
     }
     for wifi in parsed.wifi_access_points.unwrap_or_default() {
+        if !is_valid_transmitter_age(&parsed.position, wifi.age) {
+            continue;
+        }
         // ignore hidden networks
         let ssid = wifi
             .ssid
@@ -107,6 +128,9 @@ pub fn extract(raw: &[u8]) -> Result<(Position, Vec<Transmitter>)> {
         }
     }
     for bt in parsed.bluetooth_beacons.unwrap_or_default() {
+        if !is_valid_transmitter_age(&parsed.position, bt.age) {
+            continue;
+        }
         txs.push(Transmitter::Bluetooth {
             mac: bt.mac_address,
         })
