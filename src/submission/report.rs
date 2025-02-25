@@ -23,7 +23,8 @@ pub struct Position {
     pub latitude: f64,
     pub longitude: f64,
     pub speed: Option<f32>,
-    pub age: u32,
+    #[serde(default)]
+    pub age: Option<u32>,
 }
 
 #[derive(Deserialize)]
@@ -41,7 +42,8 @@ struct Cell {
     // NeoStumbler/18 send {"primaryScramblingCode":null}
     #[serde(default)]
     primary_scrambling_code: Option<u16>,
-    age: u32,
+    #[serde(default)]
+    age: Option<u32>,
 }
 
 #[derive(Deserialize)]
@@ -59,24 +61,35 @@ enum RadioType {
 struct Wifi {
     mac_address: MacAddress,
     ssid: Option<String>,
-    age: u32,
+    #[serde(default)]
+    age: Option<u32>,
 }
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct Bluetooth {
     mac_address: MacAddress,
-    age: u32,
+    #[serde(default)]
+    age: Option<u32>,
 }
 
-fn is_valid_transmitter_age(position: &Position, transmitter_age: u32) -> bool {
-    let position_transmitter_diff_age: u32 = position.age.abs_diff(transmitter_age);
-    // trasmitter is observed more than 30 seconds from position
-    if position_transmitter_diff_age > 30_000 {
-        return false;
+fn is_valid_transmitter_age(position: &Position, transmitter_age: Option<u32>) -> bool {
+    if let Some(transmitter_age) = transmitter_age {
+        if let Some(position_age) = position.age {
+            let position_transmitter_diff_age: u32 = position_age.abs_diff(transmitter_age);
+            // trasmitter is observed more than 30 seconds from position
+            if position_transmitter_diff_age > 30_000 {
+                return false;
+            }
+            // transmitter is observed more than 50m away from position
+            return position.speed.unwrap_or(0.0) * (position_transmitter_diff_age as f32)
+                < 50_000.0;
+        }
     }
-    // transmitter is observed more than 50m away from position
-    return position.speed.unwrap_or(0.0) * (position_transmitter_diff_age as f32) < 50_000.0;
+
+    // the age field is optional, so for now observations without an age are still considered valid.
+    // ideally with a future weighted algorithm observations with no age field have little weight / high uncertainty
+    true
 }
 
 pub fn extract(raw: &[u8]) -> Result<(Position, Vec<Transmitter>)> {
