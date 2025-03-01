@@ -8,6 +8,7 @@ use anyhow::Result;
 use clap::{Parser, Subcommand};
 use sqlx::PgPool;
 
+mod archive;
 mod bounds;
 mod config;
 mod geoip;
@@ -31,6 +32,10 @@ enum Command {
     Serve,
     Process,
     Map,
+    Archive {
+        #[clap(subcommand)]
+        command: archive::ArchiveCommand,
+    },
     FormatMls,
     ImportGeoip,
 }
@@ -65,6 +70,8 @@ async fn main() -> Result<()> {
 
         Command::Process => submission::process::run(pool, config).await?,
         Command::Map => map::run(pool).await?,
+
+        Command::Archive { command } => archive::run(pool, command).await?,
 
         Command::ImportGeoip => geoip::import::run(pool).await?,
         Command::FormatMls => mls::format()?,
