@@ -57,6 +57,10 @@ pub async fn run(pool: PgPool, config: Config) -> Result<()> {
                 }
             };
 
+            if txs.is_empty() {
+                continue;
+            };
+
             for x in txs {
                 if let Some(b) = modified.get_mut(&x) {
                     *b = *b + (pos.latitude, pos.longitude);
