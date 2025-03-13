@@ -112,7 +112,7 @@ pub async fn service(
         let signal = match x.signal_strength.unwrap_or_default() {
             0 => -80,
             -50..=0 => -50,
-            x if (-80..-50).contains(&x) => x,
+            x if (-100..-50).contains(&x) => x,
             // ..-80 => -80,
             _ => continue,
         };
