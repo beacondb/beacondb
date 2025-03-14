@@ -2,7 +2,7 @@
 
 This document aims to:
 
-- provide context regarding the problem beaconDB aims to solve with publishing obfuscated data
+- provide context regarding the problem beaconDB aims to solve with publishing obfuscated data, as well as why the project is in this position of promising open data but not publishing it just yet
 - propose a specific idea as "the plan" for publishing beaconDB data, explaining why this was chosen over other related ideas
 
 ## first, some context
