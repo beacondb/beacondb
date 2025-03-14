@@ -25,7 +25,7 @@ Goals:
 - data must not have significant privacy impacts on AP owners
 - data must not have significant security impacts on AP hardware
 - data must not have significant privacy impacts on contributors
-- _optout and _nomap must be removed on the server. while clients are expected to filter these APs before uploading, the server should not blindly trust that clients do this, and must still receive enough data to be able to remove these APs.
+- _optout and _nomap must be filtered server side. while clients are expected to filter these APs before uploading, the server should not blindly trust that clients do this, and must still receive enough data to be able to remove these APs.
 - obfuscation should not interfere with geolocation accuracy
 - obfuscation should not interfere with the ability for a third-party to "fork" the database
 - obfuscation should not be so complicated / compute intensive that it is easier to start from scratch instead of using beaconDB's data
