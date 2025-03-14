@@ -9,14 +9,14 @@ This document aims to:
 
 When Mozilla Location Services shutdown in March, all crowdsourced WiFi geolocation data was made completely unavailable to the public. **Data that users had submitted was completely gone, and anyone who wanted to start up an alternative service would now be completely starting from scratch**.
 
-Following the [MLS shutdown announcement](https://github.com/mozilla/ichnaea/issues/2065), there was lots of discussion from the open source community regarding next steps. I'll reference some comments in greater detail down below, but people in that thread seem to be quite keen on seeing an alternative emerge that _somehow_ publishes data, mainly to avoid becoming dependent on a centralised service for the second time.
+Following the [MLS shutdown announcement](https://github.com/mozilla/ichnaea/issues/2065), there was lots of discussion from the open source community regarding next steps. Comments on the announcement show that people seem to be keen to support an alternative that _somehow_ publishes data, mainly to avoid becoming dependent on a centralised service for the second time.
 
 That thread eventually got locked due to some heated discussion, and after almost a month I wasn't able to find another place where people had gathered to continue working towards a solution for publishing data. I wasn't even able to find a project that had started collecting data to be used in an MLS replacement, so I ended up starting beaconDB with two goals in mind:
 
 - being a successor to MLS, by starting to receive data
 - publishing collected data, after discussing possible solutions as a community.the main thing here is to try and strike a balance between utility and privacy that people are happy with - which can only be done if enough people participate in discussion.
 
-10 months later, beaconDB is now sitting on more than 30 million WiFi APs (!!!) without having "a plan" to actually publish any data. While not ideal, I hope that explains how we got in this position :P.
+10 months later, beaconDB is now sitting on more than 30 million WiFi APs (!!!) without having "a plan" to actually publish any data. While not ideal, I hope that at least explains how we got in this position :P.
 
 ## proposed plan
 
@@ -38,8 +38,9 @@ Overview + details of proposed obfuscation:
    - as the SSID can easily be set by AP owners, it adds more entropy to the beaconhash, making it quite computationally intensive to bruteforce.
 2. APs are publicly identified by the first half of its beaconhash. This is a stable, globally unique identifier.
    - previous approaches to obfuscation used the idea of truncating hashes to reduce how identifiable an AP is, making it more difficult to track a single AP overtime. unfortunately, this idea would make it significantly harder for clients to estimate their location, while only making it slightly more difficult for stalkers to identify an AP in a small area like a city, as they would still be given a few possible locations.
-   - beaconDB instead will take a simplistic approach to prevent AP tracking, by blocking an AP from being published until it has been confirmed as stable for at least two years. (the exact duration will need to be researched, once beaconDB has historical metrics)
+   - beaconDB instead will take a simplistic approach to prevent AP tracking, by blocking an AP that has moved from being published until it has been confirmed as stable for at least two years. (the exact duration will need to be researched, once beaconDB has historical metrics)
    - as the beaconhash is based off the MAC + SSID of an AP, people worried about tracking can change their SSID to get a completely different beaconhash. changing AP MAC addresses to prevent tracking is not easy to do, and on some hardware may require rooting/custom firmware.
+   - **after (at least) two years, a previously blocked AP will be published again. people may be able to lookup its old location in old/archived versions of public data dumps. if this concerns an AP owner, it is expected that they will change their SSID to get a new beaconhash, or add _optout/_nomap.**
 3. An AP's published location is pseudorandomly offset by 1km, derived using 16 bytes (2xf64) from the latter half of the AP's beaconhash.
    - counter-intuitively, this is not to protect the location of an AP. this this is to protect the location history of beaconDB's contributors.
    - beaconDB's current map only shows submissions using resolution 7 H3 cells, which have an average area of 5.1km^2. 1km is chosen as this closely matches the current map resolution, as an AP's public/obfuscated location will then always be in a 4km^2 area centered on it's real location. (1km in either direction = 2km x 2km)
