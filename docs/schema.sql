@@ -4,11 +4,9 @@ create table report (
     processed_at timestamp with time zone,
     processing_error text,
 
-    -- prevent duplicate reports
     timestamp timestamp with time zone not null,
     latitude double precision not null,
     longitude double precision not null,
-    unique (timestamp, latitude, longitude),
     
     user_agent text,
     raw bytea not null
