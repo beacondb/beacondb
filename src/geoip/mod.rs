@@ -11,7 +11,6 @@ use std::{
 use actix_web::{error::ErrorInternalServerError, post, web, HttpRequest, HttpResponse};
 use anyhow::{Context, Result};
 use ipnetwork::IpNetwork;
-use nodit::{interval::ii, Interval, NoditMap};
 use serde::Deserialize;
 use serde_json::json;
 use sqlx::{query_file, PgPool};
