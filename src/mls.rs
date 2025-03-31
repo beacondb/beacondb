@@ -1,4 +1,6 @@
-use std::io;
+//! Serde types for Mozilla Location Service.
+
+use std::{cell::Cell, io};
 
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
@@ -6,6 +8,7 @@ use sqlx::query;
 
 use crate::model::CellRadio;
 
+/// MLS serde representation of a record
 #[derive(Debug, Deserialize, Serialize)]
 struct Record {
     radio: RadioType,
@@ -19,6 +22,7 @@ struct Record {
     range: f32,
 }
 
+/// Type of radio as specified in MLS
 #[derive(Debug, Deserialize, Serialize, Clone, Copy, PartialEq, Eq)]
 #[serde(rename_all = "UPPERCASE")]
 enum RadioType {
@@ -27,6 +31,7 @@ enum RadioType {
     Lte,
 }
 
+/// Reformat MLS data
 pub fn format() -> Result<()> {
     let mut reader = csv::Reader::from_reader(io::stdin());
     for (i, result) in reader.deserialize().enumerate() {

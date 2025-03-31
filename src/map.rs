@@ -1,3 +1,5 @@
+//! Utilities to create maps to visualize data.
+
 use std::{collections::BTreeSet, fs, io};
 
 use anyhow::Result;
@@ -7,6 +9,7 @@ use geojson::Geometry;
 use h3o::{geom::dissolve, CellIndex, LatLng, Resolution};
 use sqlx::{query, query_scalar, PgPool};
 
+/// Create a geometry from the database h3 tiles
 pub async fn run(pool: PgPool) -> Result<()> {
     let mut tx = pool.begin().await?;
     let mut q = query_scalar!("select h3 from map").fetch(&pool);

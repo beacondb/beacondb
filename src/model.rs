@@ -1,11 +1,15 @@
+//! Contains the main type model.
+
 use mac_address::MacAddress;
 use serde::Deserialize;
 use sqlx::{query_as, PgPool};
 
 use crate::bounds::Bounds;
 
+/// A transmitter (cell tower, wifi network or bluetooth beacon)
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Transmitter {
+    /// A cell tower
     Cell {
         radio: CellRadio,
         // all integers are stored as signed in postgres
@@ -15,14 +19,13 @@ pub enum Transmitter {
         cell: i64,
         unit: i16,
     },
-    Wifi {
-        mac: MacAddress,
-    },
-    Bluetooth {
-        mac: MacAddress,
-    },
+    /// A wifi network based on its MAC-Address
+    Wifi { mac: MacAddress },
+    /// A Bluetooth beacon
+    Bluetooth { mac: MacAddress },
 }
 
+/// Cell radio type
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Deserialize, sqlx::Type)]
 #[serde(rename_all = "lowercase")]
 #[repr(i16)]
@@ -34,6 +37,7 @@ pub enum CellRadio {
 }
 
 impl Transmitter {
+    /// Lookup the geospatial bounding box of the  transmitter in the database
     pub async fn lookup(&self, pool: &PgPool) -> sqlx::Result<Option<Bounds>> {
         let bounds = match self {
             Transmitter::Cell {

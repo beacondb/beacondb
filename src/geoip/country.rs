@@ -1,7 +1,10 @@
+//! Contains country information.
+
 use strum::{AsRefStr, Display, EnumString, IntoStaticStr};
 
 // https://github.com/annexare/Countries/blob/main/dist/countries.min.json
 
+/// Representation of a country
 #[derive(
     Debug, Clone, Copy, Display, EnumString, AsRefStr, IntoStaticStr, PartialEq, Eq, PartialOrd, Ord,
 )]
@@ -259,6 +262,7 @@ pub enum Country {
 }
 
 impl Country {
+    /// Get the name of the country as a str slice.
     pub fn name(&self) -> &'static str {
         match self {
             Self::AD => "Andorra",

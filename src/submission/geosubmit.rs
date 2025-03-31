@@ -1,3 +1,5 @@
+//! Contains the service that receives new submissions.
+
 use actix_web::{
     error::ErrorInternalServerError,
     http::{header::USER_AGENT, StatusCode},
@@ -15,11 +17,13 @@ use sqlx::{query, PgPool};
 //
 // - https://github.com/mjaakko/NeoStumbler/issues/88
 
+/// Serde representation of a submission
 #[derive(Deserialize)]
 struct Submission {
     items: Vec<Report>,
 }
 
+/// Serde representation of a single report
 #[derive(Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct Report {
@@ -30,6 +34,7 @@ struct Report {
     extra: Value,
 }
 
+/// Serde representation of the position of a report
 #[derive(Deserialize, Serialize)]
 struct Position {
     latitude: f64,
@@ -38,6 +43,7 @@ struct Position {
     extra: Value,
 }
 
+/// The entrypoint that handles a new submission.
 #[post("/v2/geosubmit")]
 pub async fn service(
     data: web::Json<Submission>,
@@ -63,6 +69,7 @@ pub async fn service(
     Ok(HttpResponse::new(StatusCode::OK))
 }
 
+/// Inserts a submission into the database.
 async fn insert(
     pool: &PgPool,
     user_agent: Option<&str>,

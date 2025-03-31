@@ -1,3 +1,6 @@
+//! `beacondb` is a server to geolocate a client based on the nearby wifis, cell towers and bluetooth beacons.
+//! It is also used to collect data from mappers and processes that data.
+
 use std::{
     path::{Path, PathBuf},
     sync::Arc,
@@ -18,6 +21,7 @@ mod mls;
 mod model;
 mod submission;
 
+/// Command line interface parser.
 #[derive(Debug, Parser)]
 struct Cli {
     #[arg(short, long)]
@@ -27,16 +31,23 @@ struct Cli {
     command: Command,
 }
 
+/// Subcommands of the cli parser
 #[derive(Debug, Subcommand)]
 enum Command {
+    /// Serve the beacondb geolocate service
     Serve,
+    /// Process newly submitted reports
     Process,
+    /// Export a map of all data as h3 hexagons
     Map,
+    /// Archive reports out of the database
     Archive {
         #[clap(subcommand)]
         command: archive::ArchiveCommand,
     },
+    /// Reformat data to the MLS format
     FormatMls,
+    /// Import mapping from ip address to a geolocation
     ImportGeoip,
 }
 
@@ -55,6 +66,7 @@ async fn main() -> Result<()> {
 
     match cli.command {
         Command::Serve => {
+            println!("beaconDB server is starting at port {}", config.http_port);
             HttpServer::new(move || {
                 App::new()
                     .app_data(web::Data::new(pool.clone()))
@@ -66,6 +78,7 @@ async fn main() -> Result<()> {
             .bind(("0.0.0.0", config.http_port))?
             .run()
             .await?;
+            println!("Gracefully stopped beaconDB server");
         }
 
         Command::Process => submission::process::run(pool, config).await?,

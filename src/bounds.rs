@@ -1,7 +1,12 @@
+//! A module to handle geospatial bounding boxes and basic operations.
+
 use std::ops::Add;
 
 use geo::Point;
 
+/// A geospatial bounding box
+///
+/// This struct represents a geospatial [minimal bounding rectangle](https://en.wikipedia.org/wiki/Minimum_bounding_rectangle).
 #[derive(Clone, Copy)]
 pub struct Bounds {
     pub min_lat: f64,
@@ -11,6 +16,7 @@ pub struct Bounds {
 }
 
 impl Bounds {
+    /// Create a new `Bounds` struct around a single point.
     pub fn new(lat: f64, lon: f64) -> Self {
         Self {
             min_lat: lat,
@@ -20,6 +26,7 @@ impl Bounds {
         }
     }
 
+    /// Return the bottom left and the top right point of the rectangle.
     pub fn points(&self) -> (Point, Point) {
         let min = Point::new(self.min_lon, self.min_lat);
         let max = Point::new(self.max_lon, self.max_lat);
@@ -30,6 +37,7 @@ impl Bounds {
 impl Add<(f64, f64)> for Bounds {
     type Output = Self;
 
+    /// Union of two bounds.
     fn add(mut self, (lat, lon): (f64, f64)) -> Self {
         if lat < self.min_lat {
             self.min_lat = lat;

@@ -1,9 +1,12 @@
+//! Module to deserialize reports.
+
 use anyhow::Result;
 use mac_address::MacAddress;
 use serde::Deserialize;
 
 use crate::model::{CellRadio, Transmitter};
 
+/// Serde representation to deserialize report
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct Report {
@@ -14,6 +17,7 @@ struct Report {
     bluetooth_beacons: Option<Vec<Bluetooth>>,
 }
 
+/// Serde representation to deserialize a position in a report
 #[derive(Deserialize)]
 pub struct Position {
     pub latitude: f64,
@@ -25,6 +29,7 @@ pub struct Position {
     pub age: Option<u32>,
 }
 
+/// Serde representation to deserialize a cell tower in a report
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct Cell {
@@ -45,6 +50,7 @@ struct Cell {
     age: Option<u32>,
 }
 
+/// Serde representation to deserialize a radio type
 #[derive(Deserialize)]
 #[serde(rename_all = "lowercase")]
 enum RadioType {
@@ -55,6 +61,7 @@ enum RadioType {
     Nr,
 }
 
+/// Serde representation to deserialize a wifi network in a report
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct Wifi {
@@ -64,6 +71,7 @@ struct Wifi {
     age: Option<u32>,
 }
 
+/// Serde representation to deserialize a bluetooth beacon in a report
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct Bluetooth {
@@ -93,6 +101,7 @@ fn should_be_ignored(position: &Position, transmitter_age: Option<u32>) -> bool 
     false
 }
 
+/// Extract the position and the submitted transmitters from the raw data
 pub fn extract(raw: &[u8]) -> Result<(Position, Vec<Transmitter>)> {
     let parsed: Report = serde_json::from_slice(raw)?;
 

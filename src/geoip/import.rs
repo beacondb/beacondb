@@ -1,3 +1,5 @@
+//! Handles the import from DB-IP.
+
 use std::{io, net::IpAddr, str::FromStr};
 
 use anyhow::{bail, Result};
@@ -7,6 +9,7 @@ use sqlx::{query, PgPool};
 
 use super::Country;
 
+/// Rust representation of a csv line from the DB-IP dataset
 #[derive(Debug, Deserialize)]
 struct RawRecord {
     start: IpNetwork,
@@ -19,6 +22,7 @@ struct RawRecord {
     longitude: f64,
 }
 
+/// Run the geoip import from the stdin
 pub async fn run(pool: PgPool) -> Result<()> {
     let mut reader = csv::ReaderBuilder::new()
         .has_headers(false)

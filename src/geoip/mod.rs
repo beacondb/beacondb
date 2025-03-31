@@ -1,3 +1,9 @@
+//! This module handles ip based localization.
+//!
+//! When the location cannot be determined using the data from the database
+//! `beacondb` tries to estimate the location from the ip address.
+//! The `DB-IP` dataset is used to link the ip address to a location.
+
 use std::{
     collections::BTreeMap,
     fs::{self, File},
@@ -19,9 +25,11 @@ mod country;
 pub use country::Country;
 pub mod import;
 
+/// License of DB-IP data
 pub const LICENSE: &str =
     "IP geolocation data sourced from IP to City Lite by DB-IP, licensed under CC BY 4.0.";
 
+/// Geolocalize user based on IP
 #[post("/v1/country")]
 pub async fn country_service(
     pool: web::Data<PgPool>,

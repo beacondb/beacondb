@@ -1,3 +1,18 @@
+//! This module contains functions to process new submissions.
+//!
+//! Currently, `beacondb` does not predict the position of the beacon and
+//! simply keeps track of the bounding box of the positions where a beacon has
+//! been reported.
+//!
+//! `beacondb` iterates over all beacons in the reports and checks if it has
+//! been reported before.
+//! If it can find the beacon in the database it increases the bounding box to
+//! include the new reported position if needed.
+//! Otherwise `beacondb` creates a new entry in the database with a zero-sized
+//! bounding box around the reported position.
+//!
+//! After processing the data the stats are updated.
+
 use std::{
     collections::{BTreeMap, BTreeSet},
     fs,
@@ -13,6 +28,7 @@ use h3o::{Resolution};
 
 use crate::{bounds::Bounds, config::Config, model::Transmitter};
 
+/// Process new submissions
 pub async fn run(pool: PgPool, config: Config) -> Result<()> {
     loop {
         let mut tx = pool.begin().await?;
@@ -165,6 +181,7 @@ pub async fn run(pool: PgPool, config: Config) -> Result<()> {
     Ok(())
 }
 
+/// Rust representation of database statistics
 #[derive(Serialize)]
 struct Stats {
     total_wifi: i64,

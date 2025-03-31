@@ -1,3 +1,21 @@
+//! Contains the main geolocalization service.
+//!
+//! To geolocate a request `beacondb` first tries to locate based on the
+//! surrounding WiFi networks.
+//! A weight is determined by the WiFi signal strength reported by the client.
+//! The center of the bounding boxes of the networks are queried and the
+//! center position is averaged based on the weight.
+//!
+//! At least two WiFi networks have to been known to accurately determine the
+//! position.
+//! If this is not the case the position of the current cell tower is returned.
+//!
+//! If the cell tower is not known to `beacondb` the location is estimated
+//! using the client's ip.
+//!
+//! WiFi networks are ignored if the bounding box if spans more less than 1m or
+//! more than 500m to filter out moving access points.
+
 use std::{collections::BTreeSet, str::FromStr};
 
 use actix_web::{error::ErrorInternalServerError, post, web, HttpRequest, HttpResponse};
@@ -11,14 +29,19 @@ use sqlx::{query, query_as, query_file, PgPool};
 
 use crate::{bounds::Bounds, geoip::Country, model::CellRadio};
 
+/// Serde representation of the client's request
 #[derive(Debug, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 struct LocationRequest {
+    /// List of cell towers around the client
     #[serde(default)]
     cell_towers: Vec<CellTower>,
+
+    /// List of access points around the client
     #[serde(default)]
     wifi_access_points: Vec<AccessPoint>,
 
+    /// Wether using the client's ip address to locate is allowed
     consider_ip: Option<bool>,
     fallbacks: Option<FallbackOptions>,
 }
@@ -28,6 +51,7 @@ struct FallbackOptions {
     ipf: Option<bool>,
 }
 
+// Serde representation of cell towers in the client's request
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct CellTower {
@@ -39,6 +63,7 @@ struct CellTower {
     psc: Option<i16>,
 }
 
+// Serde representation of access points in the client's request
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct AccessPoint {
@@ -46,6 +71,7 @@ struct AccessPoint {
     signal_strength: Option<i8>,
 }
 
+/// Struct for representing the server's response
 #[derive(Debug, Serialize)]
 struct LocationResponse {
     location: Location,
@@ -53,6 +79,7 @@ struct LocationResponse {
 }
 
 impl LocationResponse {
+    /// Create a new location response from a position and an accuracy.
     fn new(lat: f64, lon: f64, acc: f64) -> Self {
         // round to 6 decimal places
         let lat = (lat * 1_000_000.0).round() / 1_000_000.0;
@@ -64,6 +91,7 @@ impl LocationResponse {
         }
     }
 
+    /// Convert the response into a HTTP response
     fn respond(self) -> actix_web::Result<HttpResponse> {
         if self.location.lat.is_nan() || self.location.lng.is_nan() {
             Ok(HttpResponse::InternalServerError().finish())
@@ -83,12 +111,14 @@ impl From<Bounds> for LocationResponse {
     }
 }
 
+/// Serde representation of a location
 #[derive(Debug, Serialize)]
 struct Location {
     lat: f64,
     lng: f64,
 }
 
+/// Main entrypoint to geolocate a client.
 #[post("/v1/geolocate")]
 pub async fn service(
     data: Option<web::Json<LocationRequest>>,
