@@ -1,6 +1,6 @@
 # beaconDB
 
-*A privacy focused aGPS service written in Rust.*
+_A privacy focused aGPS service written in Rust._
 
 [beaconDB](https://beacondb.net/) aims to be an alternative to Mozilla Location Services that offers public domain dumps of its WiFi database.
 
