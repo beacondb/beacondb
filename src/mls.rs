@@ -1,10 +1,9 @@
 //! Serde types for Mozilla Location Service.
 
-use std::{cell::Cell, io};
+use std::io;
 
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
-use sqlx::query;
 
 use crate::model::CellRadio;
 

@@ -1,8 +1,8 @@
 //! Handles the import from DB-IP.
 
-use std::{io, net::IpAddr, str::FromStr};
+use std::{io, str::FromStr};
 
-use anyhow::{bail, Result};
+use anyhow::Result;
 use ipnetwork::IpNetwork;
 use serde::Deserialize;
 use sqlx::{query, PgPool};
@@ -29,6 +29,7 @@ pub async fn run(pool: PgPool) -> Result<()> {
         .from_reader(io::stdin());
     let mut tx = pool.begin().await?;
     for (i, result) in reader.deserialize().enumerate() {
+        #[allow(unused_variables)]
         let RawRecord {
             start,
             end,
@@ -55,7 +56,7 @@ pub async fn run(pool: PgPool) -> Result<()> {
             longitude
         ).execute(&mut *tx).await?;
 
-        if (i > 0 && i % 100_000 == 0) {
+        if i > 0 && i % 100_000 == 0 {
             dbg!(i);
         }
     }

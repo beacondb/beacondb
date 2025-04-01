@@ -27,7 +27,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use sqlx::{query, query_as, query_file, PgPool};
 
-use crate::{bounds::Bounds, geoip::Country, model::CellRadio};
+use crate::{bounds::Bounds, model::CellRadio};
 
 /// Serde representation of the client's request
 #[derive(Debug, Deserialize, Default)]

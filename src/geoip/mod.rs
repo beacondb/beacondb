@@ -4,20 +4,11 @@
 //! `beacondb` tries to estimate the location from the ip address.
 //! The `DB-IP` dataset is used to link the ip address to a location.
 
-use std::{
-    collections::BTreeMap,
-    fs::{self, File},
-    io::{BufRead, Read},
-    net::IpAddr,
-    path::PathBuf,
-    str::FromStr,
-    sync::Arc,
-};
+use std::str::FromStr;
 
 use actix_web::{error::ErrorInternalServerError, post, web, HttpRequest, HttpResponse};
-use anyhow::{Context, Result};
+use anyhow::Context;
 use ipnetwork::IpNetwork;
-use serde::Deserialize;
 use serde_json::json;
 use sqlx::{query_file, PgPool};
 

@@ -10,6 +10,7 @@ use crate::model::{CellRadio, Transmitter};
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct Report {
+    #[allow(dead_code)]
     timestamp: u64,
     position: Position,
     cell_towers: Option<Vec<Cell>>,

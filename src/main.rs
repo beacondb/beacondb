@@ -1,10 +1,7 @@
 //! `beacondb` is a server to geolocate a client based on the nearby wifis, cell towers and bluetooth beacons.
 //! It is also used to collect data from mappers and processes that data.
 
-use std::{
-    path::{Path, PathBuf},
-    sync::Arc,
-};
+use std::path::{Path, PathBuf};
 
 use actix_web::{web, App, HttpServer};
 use anyhow::Result;

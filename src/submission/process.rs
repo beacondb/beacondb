@@ -16,15 +16,13 @@
 use std::{
     collections::{BTreeMap, BTreeSet},
     fs,
-    path::Path,
 };
 
-use anyhow::{Context, Result};
-use futures::{StreamExt, TryStreamExt};
+use anyhow::Result;
 use h3o::LatLng;
+use h3o::Resolution;
 use serde::Serialize;
 use sqlx::{query, query_scalar, PgPool};
-use h3o::{Resolution};
 
 use crate::{bounds::Bounds, config::Config, model::Transmitter};
 
@@ -32,7 +30,7 @@ use crate::{bounds::Bounds, config::Config, model::Transmitter};
 pub async fn run(pool: PgPool, config: Config) -> Result<()> {
     loop {
         let mut tx = pool.begin().await?;
-        let mut reports =
+        let reports =
             query!("select id, raw, user_agent from report where processed_at is null order by id limit 10000")
                 .fetch_all(&mut *tx)
                 .await?;
