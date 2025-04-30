@@ -6,6 +6,7 @@
 //! to decrease its size and improve speed.
 
 use anyhow::Result;
+use chrono::{DateTime, Utc};
 use clap::Subcommand;
 use futures::TryStreamExt;
 use serde::{Deserialize, Serialize};
@@ -23,6 +24,8 @@ pub enum ArchiveCommand {
 #[derive(Deserialize, Serialize)]
 struct ArchivedReport {
     id: i32,
+    #[serde(with = "chrono::serde::ts_milliseconds")]
+    submitted_at: DateTime<Utc>,
     user_agent: Option<String>,
     raw: Value,
 }
@@ -32,10 +35,11 @@ pub async fn run(pool: PgPool, command: ArchiveCommand) -> Result<()> {
     match command {
         ArchiveCommand::Export => {
             let mut reports =
-                query!("select id, user_agent, raw from report").fetch(&pool);
+                query!("select id, submitted_at, user_agent, raw from report").fetch(&pool);
             while let Some(record) = reports.try_next().await? {
                 let archived_report = ArchivedReport {
                     id: record.id,
+                    submitted_at: record.submitted_at,
                     user_agent: record.user_agent,
                     raw: serde_json::from_slice(&record.raw)?,
                 };
