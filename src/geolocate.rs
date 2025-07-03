@@ -41,7 +41,7 @@ struct LocationRequest {
     #[serde(default)]
     wifi_access_points: Vec<AccessPoint>,
 
-    /// Wether using the client's ip address to locate is allowed
+    /// Whether using the client's ip address to locate is allowed
     consider_ip: Option<bool>,
     fallbacks: Option<FallbackOptions>,
 }
