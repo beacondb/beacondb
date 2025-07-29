@@ -27,7 +27,9 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use sqlx::{query, query_as, query_file, PgPool};
 
-use crate::{bounds::Bounds, model::CellRadio};
+use crate::{bounds::{Bounds, WeightedAverageBounds}, model::CellRadio};
+
+const SIGNAL_DROP_COEFFICIENT: f64 = 3.0;
 
 /// Serde representation of the client's request
 #[derive(Debug, Deserialize, Default)]
@@ -139,18 +141,18 @@ pub async fn service(
             continue;
         }
 
-        let signal = match x.signal_strength.unwrap_or_default() {
-            0 => -80,
-            -50..=0 => -50,
-            x if (-100..-50).contains(&x) => x,
-            // ..-80 => -80,
-            _ => continue,
-        };
-        let weight = ((1.0 / (signal as f64 - 20.0).powi(2)) * 10000.0).powi(2);
+        // let signal = match x.signal_strength.unwrap_or_default() {
+        //     0 => -80,
+        //     -50..=0 => -50,
+        //     x if (-100..-50).contains(&x) => x,
+        //     // ..-80 => -80,
+        //     _ => continue,
+        // };
+        // let weight = ((1.0 / (signal as f64 - 20.0).powi(2)) * 10000.0).powi(2);
 
         let row = query_as!(
-            Bounds,
-            "select min_lat, min_lon, max_lat, max_lon from wifi where mac = $1",
+            WeightedAverageBounds,
+            "select min_lat, min_lon, max_lat, max_lon, lat, lon, accuracy, total_weight from wifi where mac = $1",
             &x.mac_address
         )
         .fetch_optional(&*pool)
@@ -160,12 +162,23 @@ pub async fn service(
             let (min, max) = row.points();
             let center = (min + max) / 2.0;
             let r = Haversine::distance(min, center);
-            let (lon, lat) = center.x_y();
+            // let (lon, lat) = center.x_y();
 
+            // Ignore too precise (<1m) AP (privacy risk for contributors, as it
+            // doesn't contains enough points to anonymize its coordinates) and
+            // too imprecise (>500m), as it reduces the returned location
+            // accuracy, and AP is probably moving
+            // Based on old accuracy algorithm (bounding box) as new one is not
+            // really precise
             if (1.0..=500.0).contains(&r) {
-                latw += lat * weight;
-                lonw += lon * weight;
-                rw += r * weight;
+                // At this point, we can use the real coordinates
+                let weight = 10_f64.powf(x.signal_strength.unwrap_or_default() as f64 / (10.0 * SIGNAL_DROP_COEFFICIENT));
+                println!("{:#?}", row);
+
+
+                latw += row.lat * weight;
+                lonw += row.lon * weight;
+                rw += row.accuracy * weight;
                 ww += weight;
                 c += 1;
             }

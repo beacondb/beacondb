@@ -70,6 +70,7 @@ struct Wifi {
     ssid: Option<String>,
     #[serde(default)]
     age: Option<u32>,
+    signal_strength: Option<i8>,
 }
 
 /// Serde representation to deserialize a bluetooth beacon in a report
@@ -148,6 +149,7 @@ pub fn extract(raw: &[u8]) -> Result<(Position, Vec<Transmitter>)> {
         if ssid.is_some_and(|x| !x.contains("_nomap") && !x.contains("_optout")) {
             txs.push(Transmitter::Wifi {
                 mac: wifi.mac_address,
+                signal_strength: wifi.signal_strength,
             });
         }
     }

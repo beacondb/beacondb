@@ -4,7 +4,7 @@ use mac_address::MacAddress;
 use serde::Deserialize;
 use sqlx::{query_as, PgPool};
 
-use crate::bounds::Bounds;
+use crate::bounds::{Bounds, WeightedAverageBounds};
 
 /// A transmitter (cell tower, wifi network or bluetooth beacon)
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -20,7 +20,10 @@ pub enum Transmitter {
         unit: i16,
     },
     /// A wifi network based on its MAC-Address
-    Wifi { mac: MacAddress },
+    Wifi {
+        mac: MacAddress,
+        signal_strength: Option<i8>,
+    },
     /// A Bluetooth beacon
     Bluetooth { mac: MacAddress },
 }
@@ -54,7 +57,7 @@ impl Transmitter {
                     *radio as i16, country, network, area, cell, unit
                 ).fetch_optional(pool).await?
             }
-            Transmitter::Wifi { mac } => {
+            Transmitter::Wifi { mac, .. } => {
                 query_as!(
                     Bounds,
                     "select min_lat, min_lon, max_lat, max_lon from wifi where mac = $1",
@@ -72,6 +75,25 @@ impl Transmitter {
                 .fetch_optional(pool)
                 .await?
             }
+        };
+
+        Ok(bounds)
+    }
+
+    /// Lookup the geospatial bounding box of the  transmitter in the database
+    pub async fn lookup_as_weighted_average(&self, pool: &PgPool) -> sqlx::Result<Option<WeightedAverageBounds>> {
+        let bounds = match self {
+            Transmitter::Cell { .. } => { todo!() }
+            Transmitter::Wifi { mac, .. } => {
+                query_as!(
+                    WeightedAverageBounds,
+                    "select min_lat, min_lon, max_lat, max_lon, lat, lon, accuracy, total_weight from wifi where mac = $1",
+                    mac
+                )
+                .fetch_optional(pool)
+                .await?
+            }
+            Transmitter::Bluetooth { .. } => { todo!() }
         };
 
         Ok(bounds)
