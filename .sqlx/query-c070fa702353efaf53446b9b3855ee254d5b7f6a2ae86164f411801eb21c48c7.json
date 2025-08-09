@@ -1,0 +1,69 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select min_lat, min_lon, max_lat, max_lon, lat, lon, accuracy, total_weight from cell where radio = $1 and country = $2 and network = $3 and area = $4 and cell = $5 and unit = $6",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "min_lat",
+        "type_info": "Float8"
+      },
+      {
+        "ordinal": 1,
+        "name": "min_lon",
+        "type_info": "Float8"
+      },
+      {
+        "ordinal": 2,
+        "name": "max_lat",
+        "type_info": "Float8"
+      },
+      {
+        "ordinal": 3,
+        "name": "max_lon",
+        "type_info": "Float8"
+      },
+      {
+        "ordinal": 4,
+        "name": "lat",
+        "type_info": "Float8"
+      },
+      {
+        "ordinal": 5,
+        "name": "lon",
+        "type_info": "Float8"
+      },
+      {
+        "ordinal": 6,
+        "name": "accuracy",
+        "type_info": "Float8"
+      },
+      {
+        "ordinal": 7,
+        "name": "total_weight",
+        "type_info": "Float8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int2",
+        "Int2",
+        "Int2",
+        "Int4",
+        "Int8",
+        "Int2"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "c070fa702353efaf53446b9b3855ee254d5b7f6a2ae86164f411801eb21c48c7"
+}

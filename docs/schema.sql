@@ -27,7 +27,13 @@ create table cell (
     min_lat double precision not null,
     min_lon double precision not null,
     max_lat double precision not null,
-    max_lon double precision not null
+    max_lon double precision not null,
+
+    lat double precision not null,
+    lon double precision not null,
+    accuracy double precision not null,
+
+    total_weight double precision not null
 );
 
 create table wifi (
@@ -51,7 +57,13 @@ create table bluetooth (
     min_lat double precision not null,
     min_lon double precision not null,
     max_lat double precision not null,
-    max_lon double precision not null
+    max_lon double precision not null,
+
+    lat double precision not null,
+    lon double precision not null,
+    accuracy double precision not null,
+
+    total_weight double precision not null
 );
 
 create table mls_cell (

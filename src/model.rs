@@ -4,7 +4,7 @@ use mac_address::MacAddress;
 use serde::Deserialize;
 use sqlx::{query_as, PgPool};
 
-use crate::bounds::{Bounds, WeightedAverageBounds};
+use crate::bounds::{Bounds, TransmitterLocation};
 
 /// A transmitter (cell tower, wifi network or bluetooth beacon)
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -18,14 +18,18 @@ pub enum Transmitter {
         area: i32,
         cell: i64,
         unit: i16,
+        signal_strength: Option<i16>,
     },
     /// A wifi network based on its MAC-Address
     Wifi {
         mac: MacAddress,
-        signal_strength: Option<i8>,
+        signal_strength: Option<i16>,
     },
     /// A Bluetooth beacon
-    Bluetooth { mac: MacAddress },
+    Bluetooth {
+        mac: MacAddress,
+        signal_strength: Option<i16>,
+    },
 }
 
 /// Cell radio type
@@ -50,6 +54,7 @@ impl Transmitter {
                 area,
                 cell,
                 unit,
+                signal_strength: _,
             } => {
                 query_as!(
                     Bounds,
@@ -57,7 +62,7 @@ impl Transmitter {
                     *radio as i16, country, network, area, cell, unit
                 ).fetch_optional(pool).await?
             }
-            Transmitter::Wifi { mac, .. } => {
+            Transmitter::Wifi { mac, signal_strength: _ } => {
                 query_as!(
                     Bounds,
                     "select min_lat, min_lon, max_lat, max_lon from wifi where mac = $1",
@@ -66,7 +71,7 @@ impl Transmitter {
                 .fetch_optional(pool)
                 .await?
             }
-            Transmitter::Bluetooth { mac } => {
+            Transmitter::Bluetooth { mac, signal_strength: _ } => {
                 query_as!(
                     Bounds,
                     "select min_lat, min_lon, max_lat, max_lon from wifi where mac = $1",
@@ -81,21 +86,51 @@ impl Transmitter {
     }
 
     /// Lookup the geospatial bounding box of the  transmitter in the database
-    pub async fn lookup_as_weighted_average(&self, pool: &PgPool) -> sqlx::Result<Option<WeightedAverageBounds>> {
+    pub async fn lookup_as_weighted_average(&self, pool: &PgPool) -> sqlx::Result<Option<TransmitterLocation>> {
         let bounds = match self {
-            Transmitter::Cell { .. } => { todo!() }
+            Transmitter::Cell {
+                radio,
+                country,
+                network,
+                area,
+                cell,
+                unit,
+                signal_strength: _,
+            } => {
+                query_as!(
+                    TransmitterLocation,
+                    "select min_lat, min_lon, max_lat, max_lon, lat, lon, accuracy, total_weight from cell where radio = $1 and country = $2 and network = $3 and area = $4 and cell = $5 and unit = $6",
+                    *radio as i16, country, network, area, cell, unit
+                ).fetch_optional(pool).await?
+            }
             Transmitter::Wifi { mac, .. } => {
                 query_as!(
-                    WeightedAverageBounds,
+                    TransmitterLocation,
                     "select min_lat, min_lon, max_lat, max_lon, lat, lon, accuracy, total_weight from wifi where mac = $1",
                     mac
                 )
                 .fetch_optional(pool)
                 .await?
             }
-            Transmitter::Bluetooth { .. } => { todo!() }
+            Transmitter::Bluetooth { mac, .. } => {
+                query_as!(
+                    TransmitterLocation,
+                    "select min_lat, min_lon, max_lat, max_lon, lat, lon, accuracy, total_weight from wifi where mac = $1",
+                    mac
+                )
+                .fetch_optional(pool)
+                .await?
+            }
         };
 
         Ok(bounds)
+    }
+
+    pub fn signal_strength(self) -> Option<i16> {
+        match self {
+            Transmitter::Cell { signal_strength, .. } => signal_strength,
+            Transmitter::Wifi { signal_strength, .. } => signal_strength,
+            Transmitter::Bluetooth { signal_strength, .. } => signal_strength,
+        }
     }
 }

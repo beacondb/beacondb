@@ -56,8 +56,9 @@ impl Add<(f64, f64)> for Bounds {
 }
 
 
+// TODO: Move to another file, remove `Bound` declaration and add tests
 #[derive(Clone, Copy, Debug)]
-pub struct WeightedAverageBounds {
+pub struct TransmitterLocation {
     pub min_lat: f64,
     pub min_lon: f64,
     pub max_lat: f64,
@@ -69,11 +70,10 @@ pub struct WeightedAverageBounds {
     pub total_weight: f64,
 }
 
-impl WeightedAverageBounds {
-    /// Create a new `WeightedAverageBounds` struct around a single point.
+impl TransmitterLocation {
+    /// Create a new `TransmitterLocation` struct around a single point.
     pub fn new(lat: f64, lon: f64, accuracy: f64, weight: f64) -> Self {
         Self {
-            // For Bounds compatibility for now
             min_lat: lat,
             min_lon: lon,
             max_lat: lat,
@@ -92,13 +92,9 @@ impl WeightedAverageBounds {
         let max = Point::new(self.max_lon, self.max_lat);
         (min, max)
     }
-}
 
-impl Add<(f64, f64, f64, f64)> for WeightedAverageBounds {
-    type Output = Self;
-
-    /// Union of two bounds.
-    fn add(mut self, (lat, lon, accuracy, weight): (f64, f64, f64, f64)) -> Self {
+    /// Add new data to the weighted average
+    pub fn update(mut self, lat: f64, lon: f64, accuracy: f64, weight: f64) -> Self {
         if lat < self.min_lat {
             self.min_lat = lat;
         } else if lat > self.max_lat {
