@@ -16,16 +16,6 @@ pub struct Bounds {
 }
 
 impl Bounds {
-    /// Create a new `Bounds` struct around a single point.
-    pub fn new(lat: f64, lon: f64) -> Self {
-        Self {
-            min_lat: lat,
-            min_lon: lon,
-            max_lat: lat,
-            max_lon: lon,
-        }
-    }
-
     /// Return the bottom left and the top right point of the rectangle.
     pub fn points(&self) -> (Point, Point) {
         let min = Point::new(self.min_lon, self.min_lat);
@@ -34,29 +24,6 @@ impl Bounds {
     }
 }
 
-impl Add<(f64, f64)> for Bounds {
-    type Output = Self;
-
-    /// Union of two bounds.
-    fn add(mut self, (lat, lon): (f64, f64)) -> Self {
-        if lat < self.min_lat {
-            self.min_lat = lat;
-        } else if lat > self.max_lat {
-            self.max_lat = lat;
-        }
-
-        if lon < self.min_lon {
-            self.min_lon = lon;
-        } else if lon > self.max_lon {
-            self.max_lon = lon;
-        }
-
-        self
-    }
-}
-
-
-// TODO: Move to another file, remove `Bound` declaration and add tests
 #[derive(Clone, Copy, Debug)]
 pub struct TransmitterLocation {
     pub min_lat: f64,
@@ -95,6 +62,7 @@ impl TransmitterLocation {
 
     /// Add new data to the weighted average
     pub fn update(mut self, lat: f64, lon: f64, accuracy: f64, weight: f64) -> Self {
+        // TODO: Add tests
         if lat < self.min_lat {
             self.min_lat = lat;
         } else if lat > self.max_lat {
@@ -114,27 +82,5 @@ impl TransmitterLocation {
         self.total_weight += weight;
 
         self
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn double_check() {
-        let b = Bounds::new(0.0, 0.0);
-
-        let b = b + (0.1, 0.1);
-        assert!(b.max_lat > 0.0);
-        assert!(b.max_lon > 0.0);
-        assert!(b.min_lat < 0.1);
-        assert!(b.min_lon < 0.1);
-
-        let b = b + (-0.1, -0.1);
-        assert!(b.max_lat > 0.0);
-        assert!(b.max_lon > 0.0);
-        assert!(b.min_lat < 0.0);
-        assert!(b.min_lon < 0.0);
     }
 }

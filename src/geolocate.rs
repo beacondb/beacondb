@@ -113,13 +113,6 @@ impl From<Bounds> for LocationResponse {
     }
 }
 
-impl From<TransmitterLocation> for LocationResponse {
-    fn from(value: TransmitterLocation) -> Self {
-        // TODO: Find a better way to extract accuracy
-        Self::new(value.lat, value.lon, value.accuracy.max(50.0))
-    }
-}
-
 /// Serde representation of a location
 #[derive(Debug, Serialize)]
 struct Location {
@@ -196,7 +189,7 @@ pub async fn service(
     // todo: this is awful
     for x in data.cell_towers {
         if let Some(unit) = x.psc {
-            let row = query_as!(TransmitterLocation,"select min_lat, min_lon, max_lat, max_lon, lat, lon, accuracy, total_weight from cell where radio = $1 and country = $2 and network = $3 and area = $4 and cell = $5 and unit = $6",
+            let row = query_as!(Bounds,"select min_lat, min_lon, max_lat, max_lon from cell where radio = $1 and country = $2 and network = $3 and area = $4 and cell = $5 and unit = $6",
                 x.radio_type as i16, x.mobile_country_code, x.mobile_network_code, x.location_area_code, x.cell_id, unit
             ).fetch_optional(&*pool).await.map_err(ErrorInternalServerError)?;
             if let Some(row) = row {
@@ -210,7 +203,7 @@ pub async fn service(
                 return LocationResponse::new(row.lat, row.lon, row.radius.max(50.0)).respond();
             }
         } else {
-            let row = query_as!(TransmitterLocation,"select min_lat, min_lon, max_lat, max_lon, lat, lon, accuracy, total_weight from cell where radio = $1 and country = $2 and network = $3 and area = $4 and cell = $5",
+            let row = query_as!(Bounds,"select min_lat, min_lon, max_lat, max_lon from cell where radio = $1 and country = $2 and network = $3 and area = $4 and cell = $5",
                 x.radio_type as i16, x.mobile_country_code, x.mobile_network_code, x.location_area_code, x.cell_id
             ).fetch_optional(&*pool).await.map_err(ErrorInternalServerError)?;
             if let Some(row) = row {

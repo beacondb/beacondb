@@ -44,49 +44,8 @@ pub enum CellRadio {
 }
 
 impl Transmitter {
-    /// Lookup the geospatial bounding box of the  transmitter in the database
-    pub async fn lookup(&self, pool: &PgPool) -> sqlx::Result<Option<Bounds>> {
-        let bounds = match self {
-            Transmitter::Cell {
-                radio,
-                country,
-                network,
-                area,
-                cell,
-                unit,
-                signal_strength: _,
-            } => {
-                query_as!(
-                    Bounds,
-                    "select min_lat, min_lon, max_lat, max_lon from cell where radio = $1 and country = $2 and network = $3 and area = $4 and cell = $5 and unit = $6",
-                    *radio as i16, country, network, area, cell, unit
-                ).fetch_optional(pool).await?
-            }
-            Transmitter::Wifi { mac, signal_strength: _ } => {
-                query_as!(
-                    Bounds,
-                    "select min_lat, min_lon, max_lat, max_lon from wifi where mac = $1",
-                    mac
-                )
-                .fetch_optional(pool)
-                .await?
-            }
-            Transmitter::Bluetooth { mac, signal_strength: _ } => {
-                query_as!(
-                    Bounds,
-                    "select min_lat, min_lon, max_lat, max_lon from wifi where mac = $1",
-                    mac
-                )
-                .fetch_optional(pool)
-                .await?
-            }
-        };
-
-        Ok(bounds)
-    }
-
-    /// Lookup the geospatial bounding box of the  transmitter in the database
-    pub async fn lookup_as_weighted_average(&self, pool: &PgPool) -> sqlx::Result<Option<TransmitterLocation>> {
+    /// Lookup the transmitter location data in the database
+    pub async fn lookup(&self, pool: &PgPool) -> sqlx::Result<Option<TransmitterLocation>> {
         let bounds = match self {
             Transmitter::Cell {
                 radio,

@@ -96,7 +96,7 @@ pub async fn run(pool: PgPool, config: Config) -> Result<()> {
 
                 if let Some(b) = modified.get_mut(&x) {
                     b.update(pos.latitude, pos.longitude, distance, weight);
-                } else if let Some(b) = x.lookup_as_weighted_average(&pool).await? {
+                } else if let Some(b) = x.lookup(&pool).await? {
                     modified.insert(x, b.update(pos.latitude, pos.longitude, distance, weight));
                 } else {
                     modified.insert(x, TransmitterLocation::new(pos.latitude, pos.longitude, distance, weight));
