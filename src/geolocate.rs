@@ -89,7 +89,7 @@ impl LocationResponse {
 
         LocationResponse {
             location: Location { lat, lng: lon },
-            accuracy: (acc.round() as i64).max(50),
+            accuracy: (acc.round() as i64),
         }
     }
 
@@ -109,14 +109,14 @@ impl From<Bounds> for LocationResponse {
         let center = (min + max) / 2.0;
         let acc = Haversine::distance(min, center);
         let (lon, lat) = center.x_y();
-        Self::new(lat, lon, acc)
+        Self::new(lat, lon, acc.max(50.0))
     }
 }
 
 impl From<TransmitterLocation> for LocationResponse {
     fn from(value: TransmitterLocation) -> Self {
         // TODO: Find a better way to extract accuracy
-        Self::new(value.lat, value.lon, value.accuracy)
+        Self::new(value.lat, value.lon, value.accuracy.max(50.0))
     }
 }
 
@@ -148,15 +148,6 @@ pub async fn service(
             continue;
         }
 
-        // let signal = match x.signal_strength.unwrap_or_default() {
-        //     0 => -80,
-        //     -50..=0 => -50,
-        //     x if (-100..-50).contains(&x) => x,
-        //     // ..-80 => -80,
-        //     _ => continue,
-        // };
-        // let weight = ((1.0 / (signal as f64 - 20.0).powi(2)) * 10000.0).powi(2);
-
         let row = query_as!(
             TransmitterLocation,
             "select min_lat, min_lon, max_lat, max_lon, lat, lon, accuracy, total_weight from wifi where mac = $1",
@@ -180,7 +171,6 @@ pub async fn service(
             if (1.0..=500.0).contains(&r) {
                 // At this point, we can use the real coordinates
                 let weight = 10_f64.powf(x.signal_strength.unwrap_or_default() as f64 / (10.0 * SIGNAL_DROP_COEFFICIENT));
-                println!("{:#?}", row);
 
 
                 latw += row.lat * weight;
@@ -217,7 +207,7 @@ pub async fn service(
                 x.radio_type as i16, x.mobile_country_code, x.mobile_network_code, x.location_area_code, x.cell_id, unit
             ).fetch_optional(&*pool).await.map_err(ErrorInternalServerError)?;
             if let Some(row) = row {
-                return LocationResponse::new(row.lat, row.lon, row.radius).respond();
+                return LocationResponse::new(row.lat, row.lon, row.radius.max(50.0)).respond();
             }
         } else {
             let row = query_as!(TransmitterLocation,"select min_lat, min_lon, max_lat, max_lon, lat, lon, accuracy, total_weight from cell where radio = $1 and country = $2 and network = $3 and area = $4 and cell = $5",
@@ -231,7 +221,7 @@ pub async fn service(
                 x.radio_type as i16, x.mobile_country_code, x.mobile_network_code, x.location_area_code, x.cell_id
             ).fetch_optional(&*pool).await.map_err(ErrorInternalServerError)?;
             if let Some(row) = row {
-                return LocationResponse::new(row.lat, row.lon, row.radius).respond();
+                return LocationResponse::new(row.lat, row.lon, row.radius.max(50.0)).respond();
             }
         }
     }
