@@ -225,3 +225,98 @@ pub fn extract(raw: &[u8]) -> Result<(Position, Vec<Transmitter>)> {
 
     Ok((parsed.position, txs))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_signal_strength() {
+        // 2G: -83 dBm = 15 asu
+        assert_eq!(
+            signal_strength(&Cell {
+                mobile_country_code: 0,
+                mobile_network_code: 0,
+                location_area_code: None,
+                cell_id: None,
+                primary_scrambling_code: None,
+                age: None,
+                signal_strength: None,
+
+                radio_type: RadioType::Gsm,
+                asu: Some(15),
+            }),
+            Some(-83)
+        );
+
+        // 3G: -85 dBm = 35 asu
+        assert_eq!(
+            signal_strength(&Cell {
+                mobile_country_code: 0,
+                mobile_network_code: 0,
+                location_area_code: None,
+                cell_id: None,
+                primary_scrambling_code: None,
+                age: None,
+                signal_strength: None,
+
+                radio_type: RadioType::Umts,
+                asu: Some(35),
+            }),
+            Some(-85)
+        );
+
+        // 4G: -108 dBm = 32 asu
+        assert_eq!(
+            signal_strength(&Cell {
+                mobile_country_code: 0,
+                mobile_network_code: 0,
+                location_area_code: None,
+                cell_id: None,
+                primary_scrambling_code: None,
+                age: None,
+                signal_strength: None,
+
+                radio_type: RadioType::Lte,
+                asu: Some(32),
+            }),
+            Some(-108)
+        );
+
+        // Always prefer signal strength to ASU
+        assert_eq!(
+            signal_strength(&Cell {
+                mobile_country_code: 0,
+                mobile_network_code: 0,
+                location_area_code: None,
+                cell_id: None,
+                primary_scrambling_code: None,
+                age: None,
+
+                radio_type: RadioType::Lte,
+                signal_strength: Some(-20),
+                asu: Some(32),
+            }),
+            Some(-20)
+        );
+
+        // Ignore ASU 99 (error)
+        assert_eq!(
+            signal_strength(&Cell {
+                mobile_country_code: 0,
+                mobile_network_code: 0,
+                location_area_code: None,
+                cell_id: None,
+                primary_scrambling_code: None,
+                age: None,
+                signal_strength: None,
+
+                radio_type: RadioType::Lte,
+                asu: Some(99),
+            }),
+            None
+        );
+
+        // TODO: Test 5G/NR
+    }
+}

@@ -27,7 +27,10 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use sqlx::{query, query_as, query_file, PgPool};
 
-use crate::{bounds::{Bounds, TransmitterLocation}, model::CellRadio};
+use crate::{
+    bounds::{Bounds, TransmitterLocation},
+    model::CellRadio,
+};
 
 const SIGNAL_DROP_COEFFICIENT: f64 = 3.0;
 
@@ -158,8 +161,9 @@ pub async fn service(
             // average "accuracy" data can't detect moving AP
             if (1.0..=500.0).contains(&r) {
                 // At this point, we can use the real coordinates
-                let weight = 10_f64.powf(x.signal_strength.unwrap_or_default() as f64 / (10.0 * SIGNAL_DROP_COEFFICIENT));
-
+                let weight = 10_f64.powf(
+                    x.signal_strength.unwrap_or_default() as f64 / (10.0 * SIGNAL_DROP_COEFFICIENT),
+                );
 
                 latw += row.lat * weight;
                 lonw += row.lon * weight;

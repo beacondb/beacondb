@@ -91,9 +91,15 @@ impl Transmitter {
 
     pub fn signal_strength(self) -> Option<i16> {
         match self {
-            Transmitter::Cell { signal_strength, .. } => signal_strength,
-            Transmitter::Wifi { signal_strength, .. } => signal_strength,
-            Transmitter::Bluetooth { signal_strength, .. } => signal_strength,
+            Transmitter::Cell {
+                signal_strength, ..
+            } => signal_strength,
+            Transmitter::Wifi {
+                signal_strength, ..
+            } => signal_strength,
+            Transmitter::Bluetooth {
+                signal_strength, ..
+            } => signal_strength,
         }
     }
 

@@ -197,7 +197,7 @@ pub async fn run(pool: PgPool, config: Config) -> Result<()> {
                     cell,
                     unit,
                     signal_strength: _,
-                    age: _
+                    age: _,
                 } => {
                     query!(
                         "insert into cell (radio, country, network, area, cell, unit, min_lat, min_lon, max_lat, max_lon, lat, lon, accuracy, total_weight) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
@@ -209,7 +209,11 @@ pub async fn run(pool: PgPool, config: Config) -> Result<()> {
                 .execute(&mut *tx)
                 .await?;
                 }
-                Transmitter::Wifi { mac, signal_strength: _, age: _ } => {
+                Transmitter::Wifi {
+                    mac,
+                    signal_strength: _,
+                    age: _,
+                } => {
                     query!(
                         "insert into wifi (mac, min_lat, min_lon, max_lat, max_lon, lat, lon, accuracy, total_weight) values ($1, $2, $3, $4, $5, $6, $7, $8, $9)
                          on conflict (mac) do update set min_lat = EXCLUDED.min_lat, min_lon = EXCLUDED.min_lon, max_lat = EXCLUDED.max_lat, max_lon = EXCLUDED.max_lon,
@@ -220,7 +224,11 @@ pub async fn run(pool: PgPool, config: Config) -> Result<()> {
                 .execute(&mut *tx)
                 .await?;
                 }
-                Transmitter::Bluetooth { mac, signal_strength: _, age: _ } => {
+                Transmitter::Bluetooth {
+                    mac,
+                    signal_strength: _,
+                    age: _,
+                } => {
                     query!(
                         "insert into bluetooth (mac, min_lat, min_lon, max_lat, max_lon, lat, lon, accuracy, total_weight) values ($1, $2, $3, $4, $5, $6, $7, $8, $9)
                          on conflict (mac) do update set min_lat = EXCLUDED.min_lat, min_lon = EXCLUDED.min_lon, max_lat = EXCLUDED.max_lat, max_lon = EXCLUDED.max_lon,
