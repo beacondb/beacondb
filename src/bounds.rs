@@ -1,7 +1,5 @@
 //! A module to handle geospatial bounding boxes and basic operations.
 
-use std::ops::Add;
-
 use geo::Point;
 
 /// A geospatial bounding box

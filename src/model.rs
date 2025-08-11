@@ -4,7 +4,7 @@ use mac_address::MacAddress;
 use serde::Deserialize;
 use sqlx::{query_as, PgPool};
 
-use crate::bounds::{Bounds, TransmitterLocation};
+use crate::bounds::TransmitterLocation;
 
 /// A transmitter (cell tower, wifi network or bluetooth beacon)
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -19,16 +19,19 @@ pub enum Transmitter {
         cell: i64,
         unit: i16,
         signal_strength: Option<i16>,
+        age: Option<i64>,
     },
     /// A wifi network based on its MAC-Address
     Wifi {
         mac: MacAddress,
         signal_strength: Option<i16>,
+        age: Option<i64>,
     },
     /// A Bluetooth beacon
     Bluetooth {
         mac: MacAddress,
         signal_strength: Option<i16>,
+        age: Option<i64>,
     },
 }
 
@@ -55,6 +58,7 @@ impl Transmitter {
                 cell,
                 unit,
                 signal_strength: _,
+                age: _,
             } => {
                 query_as!(
                     TransmitterLocation,
@@ -90,6 +94,14 @@ impl Transmitter {
             Transmitter::Cell { signal_strength, .. } => signal_strength,
             Transmitter::Wifi { signal_strength, .. } => signal_strength,
             Transmitter::Bluetooth { signal_strength, .. } => signal_strength,
+        }
+    }
+
+    pub fn age(self) -> Option<i64> {
+        match self {
+            Transmitter::Cell { age, .. } => age,
+            Transmitter::Wifi { age, .. } => age,
+            Transmitter::Bluetooth { age, .. } => age,
         }
     }
 }

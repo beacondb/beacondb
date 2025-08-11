@@ -28,6 +28,8 @@ pub struct Position {
     // Tower Collector does not send age field
     #[serde(default)]
     pub age: Option<u32>,
+    pub accuracy: Option<f64>,
+    pub heading: Option<f64>,
 }
 
 /// Serde representation to deserialize a cell tower in a report
@@ -113,7 +115,7 @@ fn should_be_ignored(position: &Position, transmitter_age: Option<u32>) -> bool 
 }
 
 // Get the signal strength in dBm, extracting it from ASU if unavailable
-fn signal_strength(cell: Cell) -> Option<i16> {
+fn signal_strength(cell: &Cell) -> Option<i16> {
     if let Some(_) = cell.signal_strength {
         return cell.signal_strength;
     }
@@ -151,7 +153,7 @@ fn signal_strength(cell: Cell) -> Option<i16> {
             // https://www.linkedin.com/pulse/what-arbitrary-signal-unit-why-does-matter-telecom-hassan-bin-tila-oap2c
             // I didn't verify this formula, as I don't have access to 5G networks
             RadioType::Nr => Some(asu - 140),
-        }
+        };
     }
 
     None
@@ -189,7 +191,8 @@ pub fn extract(raw: &[u8]) -> Result<(Position, Vec<Transmitter>)> {
             area: cell.location_area_code.unwrap() as i32,
             cell: cell.cell_id.unwrap() as i64,
             unit: cell.primary_scrambling_code.unwrap() as i16,
-            signal_strength: signal_strength(cell),
+            signal_strength: signal_strength(&cell),
+            age: cell.age.map(Into::into),
         })
     }
     for wifi in parsed.wifi_access_points.unwrap_or_default() {
@@ -205,6 +208,7 @@ pub fn extract(raw: &[u8]) -> Result<(Position, Vec<Transmitter>)> {
             txs.push(Transmitter::Wifi {
                 mac: wifi.mac_address,
                 signal_strength: wifi.signal_strength,
+                age: wifi.age.map(Into::into),
             });
         }
     }
@@ -214,7 +218,8 @@ pub fn extract(raw: &[u8]) -> Result<(Position, Vec<Transmitter>)> {
         }
         txs.push(Transmitter::Bluetooth {
             mac: bt.mac_address,
-            signal_strength: bt.signal_strength
+            signal_strength: bt.signal_strength,
+            age: bt.age.map(Into::into),
         })
     }
 

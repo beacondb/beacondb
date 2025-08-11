@@ -19,6 +19,7 @@ use std::{
 };
 
 use anyhow::Result;
+use geo::{Destination, Point, Rhumb};
 use h3o::LatLng;
 use h3o::Resolution;
 use serde::Serialize;
@@ -89,17 +90,79 @@ pub async fn run(pool: PgPool, config: Config) -> Result<()> {
                 // improved by other reports with more data
                 let rssi = x.signal_strength().unwrap_or(-90);
 
+                let distance_since_scan;
+                let lat;
+                let lon;
+                if let Some(speed) = pos.speed
+                    && let Some(wifi_age) = x.age()
+                    && let Some(pos_age) = pos.age
+                {
+                    distance_since_scan = speed * (wifi_age as f64 - pos_age as f64) / 1000.0;
+
+                    // "Reversed dead reckoning": guess where the transmitter was
+                    // scanned based on heading and distance since last scan
+                    // Neostumbler reduced metadata feature impact this feature
+                    // as speed is rounded to 2 m/s and heading to 30° (which
+                    // means +/-15° of error, with +/- 7.5° on average)
+                    // Here are values for a 80 km/h speed with 1 second age
+                    // difference
+                    // cos(15°) * 22.22 m = 5.75 m error at most
+                    // cos(7.5°) * 22.22 m = 2.90 m on average
+                    // This algorithm is still useful with this error as without
+                    // it, the data point would be located even further away
+                    // (22.22 m in the given example)
+                    if let Some(heading) = pos.heading {
+                        let transmitter_scan_pos = Rhumb::destination(
+                            Point::new(pos.latitude, pos.longitude),
+                            heading,
+                            -distance_since_scan,
+                        );
+                        (lat, lon) = transmitter_scan_pos.x_y();
+                    } else {
+                        lat = pos.latitude;
+                        lon = pos.longitude;
+                    }
+                } else {
+                    distance_since_scan = 0.0;
+                    lat = pos.latitude;
+                    lon = pos.longitude;
+                };
+
                 // Based on https://codeberg.org/beacondb/beacondb/issues/31#issuecomment-3098830
-                // TODO: Include age and accuracy/speed in weight
-                let weight = 10_f64.powf(rssi as f64 / (10.0 * SIGNAL_DROP_COEFFICIENT));
-                let distance = 10_f64.powf((BASE_RSSI - rssi as f64) / (10.0 * SIGNAL_DROP_COEFFICIENT));
+                let distance_from_transmitter =
+                    10_f64.powf((BASE_RSSI - rssi as f64) / (10.0 * SIGNAL_DROP_COEFFICIENT));
+
+                let signal_weight = 10_f64.powf(rssi as f64 / (10.0 * SIGNAL_DROP_COEFFICIENT));
+                // The formula for age was found by quick trial and error. This
+                // one seems fine. Let's take an average of 1 second between
+                // wifi and pos age.
+                // 1 m/s (3.6 km/h, by foot) = 0.91
+                // 8.33 m/s (30 km/h, slow car zone in France) = 0.46
+                // 13.88 m/s (50 km/h, fast car speed in city) = 0.28
+                // 22.22 m/s (80 km/h, rural car speed) = 0.13
+                // 30.55 m/s (110 km/h, fast car road) = 0.06
+                // 36.11 m/s (130 km/h, fastest car roads) = 0.04
+                // When no data is available, this will be computed as if the
+                // report was done without moving (giving it an higher than
+                // average weight).
+                let age_weight = 10_f64.powf(-distance_since_scan.abs() / 25.0);
+
+                // Same, found through trial and error
+                // 1m = 0.79
+                // 5m = 0.31
+                // 10m = 0.1
+                // 20m = 0.01
+                let gps_accuracy_weight = 10_f64.powf(-pos.accuracy.unwrap_or(10.0) / 10.0);
+                let weight = signal_weight * age_weight * gps_accuracy_weight;
+
+                let accuracy = distance_from_transmitter + pos.accuracy.unwrap_or_default();
 
                 if let Some(b) = modified.get_mut(&x) {
-                    b.update(pos.latitude, pos.longitude, distance, weight);
+                    b.update(lat, lon, accuracy, weight);
                 } else if let Some(b) = x.lookup(&pool).await? {
-                    modified.insert(x, b.update(pos.latitude, pos.longitude, distance, weight));
+                    modified.insert(x, b.update(lat, lon, accuracy, weight));
                 } else {
-                    modified.insert(x, TransmitterLocation::new(pos.latitude, pos.longitude, distance, weight));
+                    modified.insert(x, TransmitterLocation::new(lat, lon, accuracy, weight));
                 }
             }
 
@@ -120,6 +183,7 @@ pub async fn run(pool: PgPool, config: Config) -> Result<()> {
                     cell,
                     unit,
                     signal_strength: _,
+                    age: _
                 } => {
                     query!(
                         "insert into cell (radio, country, network, area, cell, unit, min_lat, min_lon, max_lat, max_lon, lat, lon, accuracy, total_weight) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
@@ -131,7 +195,7 @@ pub async fn run(pool: PgPool, config: Config) -> Result<()> {
                 .execute(&mut *tx)
                 .await?;
                 }
-                Transmitter::Wifi { mac, signal_strength: _ } => {
+                Transmitter::Wifi { mac, signal_strength: _, age: _ } => {
                     query!(
                         "insert into wifi (mac, min_lat, min_lon, max_lat, max_lon, lat, lon, accuracy, total_weight) values ($1, $2, $3, $4, $5, $6, $7, $8, $9)
                          on conflict (mac) do update set min_lat = EXCLUDED.min_lat, min_lon = EXCLUDED.min_lon, max_lat = EXCLUDED.max_lat, max_lon = EXCLUDED.max_lon,
@@ -142,7 +206,7 @@ pub async fn run(pool: PgPool, config: Config) -> Result<()> {
                 .execute(&mut *tx)
                 .await?;
                 }
-                Transmitter::Bluetooth { mac, signal_strength: _ } => {
+                Transmitter::Bluetooth { mac, signal_strength: _, age: _ } => {
                     query!(
                         "insert into bluetooth (mac, min_lat, min_lon, max_lat, max_lon, lat, lon, accuracy, total_weight) values ($1, $2, $3, $4, $5, $6, $7, $8, $9)
                          on conflict (mac) do update set min_lat = EXCLUDED.min_lat, min_lon = EXCLUDED.min_lon, max_lat = EXCLUDED.max_lat, max_lon = EXCLUDED.max_lon,
@@ -155,7 +219,6 @@ pub async fn run(pool: PgPool, config: Config) -> Result<()> {
                 }
             }
         }
-
 
         for h3 in h3s {
             let h3_binary = u64::from(h3).to_be_bytes();
