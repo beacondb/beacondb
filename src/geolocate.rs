@@ -153,14 +153,9 @@ pub async fn service(
             let (min, max) = row.points();
             let center = (min + max) / 2.0;
             let r = Haversine::distance(min, center);
-            // let (lon, lat) = center.x_y();
 
-            // Ignore too precise (<1m) AP (privacy risk for contributors, as it
-            // doesn't contains enough points to anonymize its coordinates) and
-            // too imprecise (>500m), as it reduces the returned location
-            // accuracy, and AP is probably moving
-            // Based on old accuracy algorithm (bounding box) as new one is not
-            // really precise
+            // Based on old accuracy algorithm (bounding box) as weighted
+            // average "accuracy" data can't detect moving AP
             if (1.0..=500.0).contains(&r) {
                 // At this point, we can use the real coordinates
                 let weight = 10_f64.powf(x.signal_strength.unwrap_or_default() as f64 / (10.0 * SIGNAL_DROP_COEFFICIENT));

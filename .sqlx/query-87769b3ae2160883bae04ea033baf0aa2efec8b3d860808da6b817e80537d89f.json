@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select min_lat, min_lon, max_lat, max_lon from wifi where mac = $1",
+  "query": "select min_lat, min_lon, max_lat, max_lon from cell where radio = $1 and country = $2 and network = $3 and area = $4 and cell = $5",
   "describe": {
     "columns": [
       {
@@ -26,7 +26,11 @@
     ],
     "parameters": {
       "Left": [
-        "Macaddr"
+        "Int2",
+        "Int2",
+        "Int2",
+        "Int4",
+        "Int8"
       ]
     },
     "nullable": [
@@ -36,5 +40,5 @@
       false
     ]
   },
-  "hash": "42539ae5a5978f19821222a26871699014c611f380b5cd4cbf84af9f7c30d770"
+  "hash": "87769b3ae2160883bae04ea033baf0aa2efec8b3d860808da6b817e80537d89f"
 }

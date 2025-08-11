@@ -1,15 +1,29 @@
 //! This module contains functions to process new submissions.
 //!
-//! Currently, `beacondb` does not predict the position of the beacon and
-//! simply keeps track of the bounding box of the positions where a beacon has
-//! been reported.
+//! `beacondb` estimate the position of the beacon using a weighted average
+//! algorithm.
+//! It also keeps track of the bounding box of the positions where a beacon has
+//! been reported, to detect moving beacons and for cell locations, for which
+//! the weighted average algorithm is less adapted.
 //!
 //! `beacondb` iterates over all beacons in the reports and checks if it has
 //! been reported before.
 //! If it can find the beacon in the database it increases the bounding box to
-//! include the new reported position if needed.
+//! include the new reported position if needed, and add the new data to the
+//! database by computing he submission weight and incorporating it to the
+//! average.
 //! Otherwise `beacondb` creates a new entry in the database with a zero-sized
 //! bounding box around the reported position.
+//!
+//! Some dead reckoning is done to determine the real beacon location, which can
+//! be different from the report location as the GNSS fix on the contributor
+//! device isn't synced to the scans.
+//!
+//! The weight using to compute the average is based on the RSSI (signal level),
+//! distance between scan and GNSS fix and GNSS fix accuracy, based on
+//! exponential functions in the form 10^(-data/coefficient), with higher values
+//! of data being better. The coefficient is used to adjust the behaviour of the
+//! curve to match the input data.
 //!
 //! After processing the data the stats are updated.
 
@@ -152,8 +166,8 @@ pub async fn run(pool: PgPool, config: Config) -> Result<()> {
                 // 5m = 0.31
                 // 10m = 0.1
                 // 20m = 0.01
-                let gps_accuracy_weight = 10_f64.powf(-pos.accuracy.unwrap_or(10.0) / 10.0);
-                let weight = signal_weight * age_weight * gps_accuracy_weight;
+                let gnss_accuracy_weight = 10_f64.powf(-pos.accuracy.unwrap_or(10.0) / 10.0);
+                let weight = signal_weight * age_weight * gnss_accuracy_weight;
 
                 let accuracy = distance_from_transmitter + pos.accuracy.unwrap_or_default();
 
