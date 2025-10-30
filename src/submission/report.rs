@@ -27,7 +27,7 @@ pub struct Position {
     pub speed: Option<f64>,
     // Tower Collector does not send age field
     #[serde(default)]
-    pub age: Option<u32>,
+    pub age: Option<i32>,
 }
 
 /// Serde representation to deserialize a cell tower in a report
@@ -48,7 +48,7 @@ struct Cell {
     primary_scrambling_code: Option<u16>,
     // Tower Collector does not send age field
     #[serde(default)]
-    age: Option<u32>,
+    age: Option<i32>,
 }
 
 /// Serde representation to deserialize a radio type
@@ -69,7 +69,7 @@ struct Wifi {
     mac_address: MacAddress,
     ssid: Option<String>,
     #[serde(default)]
-    age: Option<u32>,
+    age: Option<i32>,
 }
 
 /// Serde representation to deserialize a bluetooth beacon in a report
@@ -78,10 +78,10 @@ struct Wifi {
 struct Bluetooth {
     mac_address: MacAddress,
     #[serde(default)]
-    age: Option<u32>,
+    age: Option<i32>,
 }
 
-fn should_be_ignored(position: &Position, transmitter_age: Option<u32>) -> bool {
+fn should_be_ignored(position: &Position, transmitter_age: Option<i32>) -> bool {
     if let Some(transmitter_age) = transmitter_age {
         if let Some(position_age) = position.age {
             let position_transmitter_diff_age: u32 = position_age.abs_diff(transmitter_age);
