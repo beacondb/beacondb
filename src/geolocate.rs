@@ -121,11 +121,11 @@ struct Location {
 /// Main entrypoint to geolocate a client.
 #[post("/v1/geolocate")]
 pub async fn service(
-    data: Option<web::Json<LocationRequest>>,
+    data: web::Json<LocationRequest>,
     pool: web::Data<PgPool>,
     req: HttpRequest,
 ) -> actix_web::Result<HttpResponse> {
-    let data = data.map(|x| x.into_inner()).unwrap_or_default();
+    let data = data.into_inner();
     let pool = pool.into_inner();
 
     let mut latw = 0.0;
