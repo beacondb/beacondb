@@ -4,26 +4,26 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-actix-web = "4.6.0"
-anyhow = "1.0.86"
-chrono = { version = "0.4.38", features = ["serde"] }
-clap = { version = "4.5.4", features = ["derive"] }
-csv = "1.3.0"
+actix-web = "4.11.0"
+anyhow = "1.0.100"
+chrono = { version = "0.4.42", features = ["serde"] }
+clap = { version = "4.5.51", features = ["derive"] }
+csv = "1.4.0"
 dotenvy = "0.15.7"
-futures = "0.3.30"
-geo = "0.29.2"
-geo-types = "0.7.14"
-geojson = { version = "0.24.1", features = ["geo-types"] }
-h3o = { version = "0.7.0", features = ["geo"] }
+futures = "0.3.31"
+geo = "0.29.3"
+geo-types = "0.7.17"
+geojson = { version = "0.24.2", features = ["geo-types"] }
+h3o = { version = "0.7.1", features = ["geo"] }
 ipnetwork = "0.20.0"
-mac_address = { version = "1.1.7", features = ["serde"] }
+mac_address = { version = "1.1.8", features = ["serde"] }
 rayon = "1.11.0"
-serde = { version = "1.0.203", features = ["derive"] }
-serde_json = "1.0.117"
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.145"
 sqlx = { version = "0.7.4", features = ["chrono", "postgres", "runtime-tokio", "macros", "mac_address", "ipnetwork"] }
 strum = { version = "0.26.3", features = ["derive"] }
-tokio = { version = "1.38.0", features = ["macros", "rt-multi-thread"] }
-toml = "0.8.14"
+tokio = { version = "1.48.0", features = ["macros", "rt-multi-thread"] }
+toml = "0.8.23"
 
 [lints.rust]
 unsafe_code = "forbid"
