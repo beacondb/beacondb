@@ -105,7 +105,7 @@ impl From<Bounds> for LocationResponse {
     fn from(value: Bounds) -> Self {
         let (min, max) = value.points();
         let center = (min + max) / 2.0;
-        let acc = Haversine::distance(min, center);
+        let acc = Haversine.distance(min, center);
         let (lon, lat) = center.x_y();
         Self::new(lat, lon, acc)
     }
@@ -159,7 +159,7 @@ pub async fn service(
         if let Some(row) = row {
             let (min, max) = row.points();
             let center = (min + max) / 2.0;
-            let r = Haversine::distance(min, center);
+            let r = Haversine.distance(min, center);
             let (lon, lat) = center.x_y();
 
             if (1.0..=500.0).contains(&r) {

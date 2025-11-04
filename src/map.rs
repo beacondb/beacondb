@@ -3,7 +3,7 @@
 use anyhow::Result;
 use futures::TryStreamExt;
 use geojson::Geometry;
-use h3o::{geom::dissolve, CellIndex};
+use h3o::{geom::SolventBuilder, CellIndex};
 use sqlx::{query_scalar, PgPool};
 
 /// Create a geometry from the database h3 tiles
@@ -23,7 +23,8 @@ pub async fn run(pool: PgPool) -> Result<()> {
         cells.push(x);
     }
 
-    let poly = dissolve(cells)?;
+    let solvent = SolventBuilder::new().disable_duplicate_detection().build();
+    let poly = solvent.dissolve(cells)?;
     let geom = Geometry::new((&poly).into());
     println!("{}", geom.to_string());
 
