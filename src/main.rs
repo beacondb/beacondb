@@ -8,8 +8,8 @@ use anyhow::Result;
 use clap::{Parser, Subcommand};
 use sqlx::PgPool;
 
-mod archive;
 mod bounds;
+mod bulk;
 mod config;
 mod geoip;
 mod geolocate;
@@ -38,9 +38,9 @@ enum Command {
     /// Export a map of all data as h3 hexagons
     Map,
     /// Archive reports out of the database
-    Archive {
+    Bulk {
         #[clap(subcommand)]
-        command: archive::ArchiveCommand,
+        command: bulk::BulkCommand,
     },
     /// Reformat data to the MLS format
     FormatMls,
@@ -81,7 +81,7 @@ async fn main() -> Result<()> {
         Command::Process => submission::process::run(pool, config).await?,
         Command::Map => map::run(pool).await?,
 
-        Command::Archive { command } => archive::run(pool, command).await?,
+        Command::Bulk { command } => bulk::run(pool, command).await?,
 
         Command::ImportGeoip => geoip::import::run(pool).await?,
         Command::FormatMls => mls::format()?,

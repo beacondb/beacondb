@@ -9,7 +9,7 @@ use crate::model::{CellRadio, Transmitter};
 /// Serde representation to deserialize report
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct Report {
+pub struct Report {
     #[allow(dead_code)]
     timestamp: u64,
     position: Position,
@@ -129,66 +129,72 @@ fn should_ignore_report(parsed: &Report) -> bool {
 /// Will return None if the report has data quality issues and should therefore be completely ignored.
 pub fn load(raw: &[u8]) -> Result<Option<(Position, Vec<Transmitter>)>> {
     let parsed: Report = serde_json::from_slice(raw)?;
-    if should_ignore_report(&parsed) {
-        return Ok(None);
-    }
+    parsed.load()
+}
 
-    let mut txs = Vec::new();
-    for cell in parsed.cell_towers.unwrap_or_default() {
-        if should_ignore_transmitter(&parsed.position, cell.age) {
-            continue;
+impl Report {
+    pub fn load(self) -> Result<Option<(Position, Vec<Transmitter>)>> {
+        if should_ignore_report(&self) {
+            return Ok(None);
         }
-        if cell.mobile_country_code == 0
+
+        let mut txs = Vec::new();
+        for cell in self.cell_towers.unwrap_or_default() {
+            if should_ignore_transmitter(&self.position, cell.age) {
+                continue;
+            }
+            if cell.mobile_country_code == 0
                 // || cell.mobile_network_code == 0 // this is valid
                 || cell.location_area_code.unwrap_or(0) == 0
                 || cell.cell_id.unwrap_or(0) == 0
                 || cell.primary_scrambling_code.is_none()
-        {
-            // TODO: reuse previous cell tower data
-            continue;
+            {
+                // TODO: reuse previous cell tower data
+                continue;
+            }
+
+            txs.push(Transmitter::Cell {
+                radio: match cell.radio_type {
+                    RadioType::Gsm => CellRadio::Gsm,
+                    RadioType::Umts => CellRadio::Wcdma,
+                    RadioType::Lte => CellRadio::Lte,
+                    RadioType::Nr => CellRadio::Nr,
+                },
+                // postgres uses signed integers
+                country: cell.mobile_country_code as i16,
+                network: cell.mobile_network_code as i16,
+                area: cell.location_area_code.unwrap() as i32,
+                cell: cell.cell_id.unwrap() as i64,
+                unit: cell.primary_scrambling_code.unwrap() as i16,
+            })
+        }
+        for wifi in self.wifi_access_points.unwrap_or_default() {
+            if should_ignore_transmitter(&self.position, wifi.age) {
+                continue;
+            }
+            // ignore hidden networks
+            let ssid = wifi
+                .ssid
+                .map(|x| x.replace('\0', ""))
+                .filter(|x| !x.is_empty());
+            if ssid.is_some_and(|x| !x.contains("_nomap") && !x.contains("_optout")) {
+                txs.push(Transmitter::Wifi {
+                    mac: wifi.mac_address,
+                });
+            }
+        }
+        for bt in self.bluetooth_beacons.unwrap_or_default() {
+            if should_ignore_transmitter(&self.position, bt.age) {
+                continue;
+            }
+            txs.push(Transmitter::Bluetooth {
+                mac: bt.mac_address,
+            })
         }
 
-        txs.push(Transmitter::Cell {
-            radio: match cell.radio_type {
-                RadioType::Gsm => CellRadio::Gsm,
-                RadioType::Umts => CellRadio::Wcdma,
-                RadioType::Lte => CellRadio::Lte,
-                RadioType::Nr => CellRadio::Nr,
-            },
-            // postgres uses signed integers
-            country: cell.mobile_country_code as i16,
-            network: cell.mobile_network_code as i16,
-            area: cell.location_area_code.unwrap() as i32,
-            cell: cell.cell_id.unwrap() as i64,
-            unit: cell.primary_scrambling_code.unwrap() as i16,
-        })
-    }
-    for wifi in parsed.wifi_access_points.unwrap_or_default() {
-        if should_ignore_transmitter(&parsed.position, wifi.age) {
-            continue;
+        if txs.is_empty() {
+            return Ok(None);
         }
-        // ignore hidden networks
-        let ssid = wifi
-            .ssid
-            .map(|x| x.replace('\0', ""))
-            .filter(|x| !x.is_empty());
-        if ssid.is_some_and(|x| !x.contains("_nomap") && !x.contains("_optout")) {
-            txs.push(Transmitter::Wifi {
-                mac: wifi.mac_address,
-            });
-        }
+        Ok(Some((self.position, txs)))
     }
-    for bt in parsed.bluetooth_beacons.unwrap_or_default() {
-        if should_ignore_transmitter(&parsed.position, bt.age) {
-            continue;
-        }
-        txs.push(Transmitter::Bluetooth {
-            mac: bt.mac_address,
-        })
-    }
-
-    if txs.is_empty() {
-        return Ok(None);
-    }
-    Ok(Some((parsed.position, txs)))
 }
