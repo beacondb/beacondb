@@ -60,7 +60,7 @@ struct Cell {
 #[serde(rename_all = "lowercase")]
 enum RadioType {
     Gsm,
-    #[serde(rename = "wcdma")]
+    #[serde(alias = "wcdma")]
     Umts,
     Lte,
     Nr,
