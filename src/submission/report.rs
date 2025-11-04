@@ -25,6 +25,10 @@ pub struct Position {
     pub longitude: f64,
     #[serde(default)]
     pub speed: Option<f64>,
+    #[serde(default)]
+    pub accuracy: Option<f64>,
+    #[serde(default)]
+    pub altitude: Option<f64>,
     // Tower Collector does not send age field
     #[serde(default)]
     pub age: Option<i32>,
@@ -81,7 +85,7 @@ struct Bluetooth {
     age: Option<i32>,
 }
 
-fn should_be_ignored(position: &Position, transmitter_age: Option<i32>) -> bool {
+fn should_ignore_transmitter(position: &Position, transmitter_age: Option<i32>) -> bool {
     if let Some(transmitter_age) = transmitter_age {
         if let Some(position_age) = position.age {
             let position_transmitter_diff_age: u32 = position_age.abs_diff(transmitter_age);
@@ -102,13 +106,36 @@ fn should_be_ignored(position: &Position, transmitter_age: Option<i32>) -> bool 
     false
 }
 
-/// Extract the position and the submitted transmitters from the raw data
-pub fn extract(raw: &[u8]) -> Result<(Position, Vec<Transmitter>)> {
+/// basic checks to filter reports that should not be processed.
+fn should_ignore_report(parsed: &Report) -> bool {
+    // accuracy should not be larger than 250m
+    if parsed.position.accuracy.is_some_and(|x| x > 250.0) {
+        return true;
+    }
+
+    // altitude should not be higher than 5km, to ignore planes
+    //
+    // joelkoen 2025-11-04: I've manually checked this filter against 2025-01-01..2025-10-31, and the only reports
+    // this picked up that didn't seem to be from planes were some really funky gps fixes, such as the spoofing
+    // around Volgograd, Russia.
+    if parsed.position.altitude.is_some_and(|x| x > 5_000.0) {
+        return true;
+    }
+
+    false
+}
+
+/// Loads a report's raw JSON data and returns parsed information that should be then used to update the database.
+/// Will return None if the report has data quality issues and should therefore be completely ignored.
+pub fn load(raw: &[u8]) -> Result<Option<(Position, Vec<Transmitter>)>> {
     let parsed: Report = serde_json::from_slice(raw)?;
+    if should_ignore_report(&parsed) {
+        return Ok(None);
+    }
 
     let mut txs = Vec::new();
     for cell in parsed.cell_towers.unwrap_or_default() {
-        if should_be_ignored(&parsed.position, cell.age) {
+        if should_ignore_transmitter(&parsed.position, cell.age) {
             continue;
         }
         if cell.mobile_country_code == 0
@@ -137,7 +164,7 @@ pub fn extract(raw: &[u8]) -> Result<(Position, Vec<Transmitter>)> {
         })
     }
     for wifi in parsed.wifi_access_points.unwrap_or_default() {
-        if should_be_ignored(&parsed.position, wifi.age) {
+        if should_ignore_transmitter(&parsed.position, wifi.age) {
             continue;
         }
         // ignore hidden networks
@@ -152,7 +179,7 @@ pub fn extract(raw: &[u8]) -> Result<(Position, Vec<Transmitter>)> {
         }
     }
     for bt in parsed.bluetooth_beacons.unwrap_or_default() {
-        if should_be_ignored(&parsed.position, bt.age) {
+        if should_ignore_transmitter(&parsed.position, bt.age) {
             continue;
         }
         txs.push(Transmitter::Bluetooth {
@@ -160,5 +187,8 @@ pub fn extract(raw: &[u8]) -> Result<(Position, Vec<Transmitter>)> {
         })
     }
 
-    Ok((parsed.position, txs))
+    if txs.is_empty() {
+        return Ok(None);
+    }
+    Ok(Some((parsed.position, txs)))
 }

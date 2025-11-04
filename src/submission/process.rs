@@ -52,7 +52,7 @@ pub async fn run(pool: PgPool, config: Config) -> Result<()> {
             .execute(&mut *tx)
             .await?;
 
-            let (pos, txs) = match super::report::extract(&report.raw) {
+            let loaded_report = match super::report::load(&report.raw) {
                 Ok(x) => x,
                 Err(e) => {
                     eprintln!(
@@ -71,8 +71,9 @@ pub async fn run(pool: PgPool, config: Config) -> Result<()> {
                 }
             };
 
-            if txs.is_empty() {
-                continue;
+            let (pos, txs) = match loaded_report {
+                Some(x) => x,
+                None => continue, // report was ignored
             };
 
             for x in txs {
