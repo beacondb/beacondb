@@ -72,7 +72,7 @@ async fn main() -> Result<()> {
                     .service(geolocate::service)
                     .service(submission::geosubmit::service)
             })
-            .bind(("0.0.0.0", config.http_port))?
+            .bind(("::", config.http_port))?
             .run()
             .await?;
             println!("Gracefully stopped beaconDB server");
