@@ -18,7 +18,9 @@
 
 use std::{collections::BTreeSet, str::FromStr};
 
-use actix_web::{error::ErrorInternalServerError, post, web, HttpRequest, HttpResponse};
+use actix_web::{error::ErrorInternalServerError, post, web, Error, HttpRequest, HttpResponse};
+use actix_web::http::header;
+use actix_web::http::header::HeaderValue;
 use anyhow::Context;
 use geo::{Distance, Haversine};
 use ipnetwork::IpNetwork;
@@ -121,11 +123,15 @@ struct Location {
 /// Main entrypoint to geolocate a client.
 #[post("/v1/geolocate")]
 pub async fn service(
-    data: web::Json<LocationRequest>,
+    data: Result<web::Json<LocationRequest>, Error>,
     pool: web::Data<PgPool>,
     req: HttpRequest,
 ) -> actix_web::Result<HttpResponse> {
-    let data = data.into_inner();
+    let data = match data {
+        Ok(v) => v.into_inner(),
+        Err(_) if req.headers().get(header::CONTENT_LENGTH) == Some(&HeaderValue::from_static("0")) => LocationRequest::default(),
+        Err(e) => return Err(e),
+    };
     let pool = pool.into_inner();
 
     let mut latw = 0.0;
