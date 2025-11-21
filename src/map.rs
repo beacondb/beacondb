@@ -2,33 +2,37 @@
 
 use anyhow::Result;
 use futures::TryStreamExt;
+use geo::ConvexHull;
+use geo_types::LineString;
 use geojson::Geometry;
-use h3o::{geom::SolventBuilder, CellIndex};
+use h3o::CellIndex;
 use sqlx::{query_scalar, PgPool};
 
-/// Create a geometry from the database h3 tiles
+/// Export all h3 cells as individual polygons.
+///
+/// This exports all cells from the map table as geojson polygons, one per line. This output can
+/// then be piped into tippecanoe which can handle 1 geojson Polygon per line. This should perform
+/// better than creating a single big MultiPolygon because tippecanoe won't have to parse a big json
+/// object.
 pub async fn run(pool: PgPool) -> Result<()> {
-    let tx = pool.begin().await?;
     let mut q = query_scalar!("select h3 from map").fetch(&pool);
-    let mut cells = Vec::new();
-    while let Some(x) = q.try_next().await? {
-        // query!("update map set new = false where h3 = $1", x)
-        //     .execute(&mut *tx)
-        //     .await?;
 
+    let mut first = true;
+    while let Some(x) = q.try_next().await? {
         assert_eq!(x.len(), 8);
+
+        if first {
+            first = false;
+        } else {
+            print!(",");
+        }
         let x: [u8; 8] = x.try_into().unwrap();
         let x = u64::from_be_bytes(x);
         let x = CellIndex::try_from(x)?;
-        cells.push(x);
+        let s: LineString = x.boundary().into();
+        let p = Geometry::new((&s.convex_hull()).into());
+        println!("{}", p.to_string());
     }
-
-    let solvent = SolventBuilder::new().disable_duplicate_detection().build();
-    let poly = solvent.dissolve(cells)?;
-    let geom = Geometry::new((&poly).into());
-    println!("{}", geom.to_string());
-
-    tx.commit().await?;
 
     Ok(())
 }
