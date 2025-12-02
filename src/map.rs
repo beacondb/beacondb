@@ -405,7 +405,7 @@ impl<'a> Iterator for EdgeIterator<'a> {
 /// cell is checked only against those cluster, not all other cells to keep performance and memory
 /// usage at a reasonable level. This can be tuned using [MapArgs.lookback_size].
 pub async fn run(pool: PgPool, args: MapArgs) -> Result<()> {
-    let q = query_scalar!("select h3 from map_all order by h3")
+    let q = query_scalar!("select h3 from map order by h3")
         .fetch(&pool)
         .map_ok(convert)
         .try_filter(antimeridian_filter);
