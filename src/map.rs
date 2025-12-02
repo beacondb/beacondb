@@ -1,12 +1,6 @@
 //! Utilities to create maps to visualize data.
 
-use std::collections::VecDeque;
-use std::{future, thread};
-use std::array::from_fn;
-use std::cell::Cell;
-use std::future::Ready;
-use std::io::{stdout, Write};
-use std::sync::mpsc::{sync_channel, SyncSender};
+use crate::MapArgs;
 use anyhow::Result;
 use approx::{abs_diff_eq, relative_eq};
 use futures::{Stream, TryStreamExt};
@@ -14,7 +8,13 @@ use geo_types::{Coord, LineString, Polygon};
 use geojson::Geometry;
 use h3o::{CellIndex, DirectedEdgeIndex};
 use sqlx::{query_scalar, PgPool};
-use crate::MapArgs;
+use std::array::from_fn;
+use std::cell::Cell;
+use std::collections::VecDeque;
+use std::future::Ready;
+use std::io::{stdout, Write};
+use std::sync::mpsc::{sync_channel, SyncSender};
+use std::{future, thread};
 
 /// A h3 cell including relevant information about its edges/neighbors.
 #[derive(Clone)]
@@ -26,7 +26,7 @@ struct CellData {
     edge_cnt: usize,
 
     /// The edges of this cell. Only the first [edge_cnt] entries in this array are valid.
-    edges: [EdgeData;6],
+    edges: [EdgeData; 6],
 
     /// Flag to indicate this cell is fully processed and no longer relevant.
     /// We use this flag because it's faster than actually removing the cell from a vector and more
@@ -46,13 +46,13 @@ impl CellData {
 
         CellData {
             value: cell.into(),
-            edges: from_fn(|_i| {
-                match edges.next() {
-                    None => EdgeData::default(),
-                    Some(e) => {
-                        EdgeData { destination: e.destination().into(), line: Cell::new(EdgeLine::Index(e)), consumed: Cell::new(false)}
-                    }
-                }
+            edges: from_fn(|_i| match edges.next() {
+                None => EdgeData::default(),
+                Some(e) => EdgeData {
+                    destination: e.destination().into(),
+                    line: Cell::new(EdgeLine::Index(e)),
+                    consumed: Cell::new(false),
+                },
             }),
             edge_cnt: if cell.is_pentagon() { 5 } else { 6 },
             consumed: Cell::new(false),
@@ -115,7 +115,7 @@ impl CellData {
 #[derive(Debug, Copy, Clone, PartialEq)]
 enum EdgeLine {
     Index(DirectedEdgeIndex),
-    Coords(Coord, Coord)
+    Coords(Coord, Coord),
 }
 
 /// Edge of a cell.
@@ -140,7 +140,10 @@ impl EdgeData {
     const fn default() -> Self {
         EdgeData {
             destination: 0,
-            line: Cell::new(EdgeLine::Coords(Coord { x: 0.0, y: 0.0 }, Coord { x: 0.0, y: 0.0 })),
+            line: Cell::new(EdgeLine::Coords(
+                Coord { x: 0.0, y: 0.0 },
+                Coord { x: 0.0, y: 0.0 },
+            )),
             consumed: Cell::new(false),
         }
     }
@@ -155,7 +158,8 @@ impl EdgeData {
             EdgeLine::Index(e) => {
                 let b = e.boundary();
                 let first = (*b.first().unwrap()).into();
-                self.line.set(EdgeLine::Coords(first, (*b.last().unwrap()).into()));
+                self.line
+                    .set(EdgeLine::Coords(first, (*b.last().unwrap()).into()));
                 first
             }
             EdgeLine::Coords(s, _) => s,
@@ -172,7 +176,8 @@ impl EdgeData {
             EdgeLine::Index(e) => {
                 let b = e.boundary();
                 let last = (*b.last().unwrap()).into();
-                self.line.set(EdgeLine::Coords((*b.first().unwrap()).into(), last));
+                self.line
+                    .set(EdgeLine::Coords((*b.first().unwrap()).into(), last));
                 last
             }
             EdgeLine::Coords(_, e) => e,
@@ -270,16 +275,18 @@ impl Cluster {
 
         // We might have holes and need the outer ring to be output first. So we start at the most
         // northern edge as we can be sure this is on the outer ring.
-        let first = edges.max_by(|a, b|
-            a.start().y.total_cmp(&b.start().y)
-        ).unwrap();
+        let first = edges
+            .max_by(|a, b| a.start().y.total_cmp(&b.start().y))
+            .unwrap();
 
         let mut points = Vec::<Coord>::with_capacity(10);
         let mut current = first;
         loop {
             let mut edges = self.free_edges();
             points.push(current.end());
-            current = match edges.find(|x| abs_diff_eq!(x.start(), current.end(), epsilon = 0.00000000001)) {
+            current = match edges
+                .find(|x| abs_diff_eq!(x.start(), current.end(), epsilon = 0.00000000001))
+            {
                 Some(x) => x,
                 None => {
                     break;
@@ -310,7 +317,11 @@ impl Cluster {
                     loop {
                         points.push(current.end());
                         let mut edges = self.free_edges();
-                        current = edges.find(|x| relative_eq!(x.start(), current.end(), epsilon = 0.00000000001)).unwrap();
+                        current = edges
+                            .find(|x| {
+                                relative_eq!(x.start(), current.end(), epsilon = 0.00000000001)
+                            })
+                            .unwrap();
                         current.mark_consumed();
                         if current == first {
                             // points.push(current.start());
@@ -422,7 +433,8 @@ pub async fn run(pool: PgPool, args: MapArgs) -> Result<()> {
 /// Process a stream of cells merging them into clusters. All clusters we find are send to the
 /// [cluster_tx] channel for further processing.
 async fn process<T>(mut q: T, lookback_size: usize, cluster_tx: SyncSender<Cluster>) -> Result<()>
-where T: Stream<Item = Result<u64, sqlx::Error>> + Unpin
+where
+    T: Stream<Item = Result<u64, sqlx::Error>> + Unpin,
 {
     let mut clusters = VecDeque::<Cluster>::with_capacity(lookback_size);
 
@@ -439,7 +451,7 @@ where T: Stream<Item = Result<u64, sqlx::Error>> + Unpin
             let first = added_to.first().unwrap();
             for (i, idx) in added_to.iter().enumerate().skip(1) {
                 let merge = clusters.remove(*idx).unwrap();
-                clusters.get_mut(*first-i).unwrap().merge(merge, x);
+                clusters.get_mut(*first - i).unwrap().merge(merge, x);
             }
         } else if added_to.is_empty() {
             // We did not add this cell, so it becomes the start of a new cluster
@@ -477,22 +489,29 @@ fn antimeridian_filter(cell: &u64) -> Ready<bool> {
     // Per geojson spec we should cut those into two shapes to prevent this from happening.
     // See: https://datatracker.ietf.org/doc/html/rfc7946#section-3.1.9
     let s: LineString = CellIndex::try_from(*cell).unwrap().boundary().into();
-    let is_crossing = s.lines().any(|l| l.start.x.is_sign_negative() != l.end.x.is_sign_negative());
+    let is_crossing = s
+        .lines()
+        .any(|l| l.start.x.is_sign_negative() != l.end.x.is_sign_negative());
     future::ready(!is_crossing)
 }
 
 #[cfg(test)]
 mod tests {
-    use std::sync::mpsc::sync_channel;
+    use crate::map::{process, Cluster};
     use futures::stream;
     use geo::Coord;
     use geo_types::{LineString, Polygon};
-    use crate::map::{process, Cluster};
+    use std::sync::mpsc::sync_channel;
 
     #[tokio::test]
     async fn process_triple_merge() {
         // Three separate cells which are joined together by the last one.
-        let cells: [Result<u64, sqlx::Error>; 4] = [Ok(0x882ba14733fffff), Ok(0x882ba1455bfffff), Ok(0x882ba14461fffff), Ok(0x882ba14465fffff)];
+        let cells: [Result<u64, sqlx::Error>; 4] = [
+            Ok(0x882ba14733fffff),
+            Ok(0x882ba1455bfffff),
+            Ok(0x882ba14461fffff),
+            Ok(0x882ba14465fffff),
+        ];
         let stream = stream::iter(cells);
 
         let (cluster_tx, cluster_rx) = sync_channel::<Cluster>(50);
@@ -526,27 +545,33 @@ mod tests {
             assert!(cluster.add_when_neighboring(*cell));
         }
         let result = cluster.into_polygon();
-        assert_eq!(result, Polygon::new(
-            LineString(vec![Coord::from((-72.01068058531455, 47.50426758066505)),
-                            Coord::from((-72.01317449786164, 47.49953890080424)),
-                            Coord::from((-72.02061441417537, 47.49855497247617)),
-                            Coord::from((-72.02310694028151, 47.493826262508925)),
-                            Coord::from((-72.01816070992638, 47.490081882768266)),
-                            Coord::from((-72.02065300977287, 47.48535354476923)),
-                            Coord::from((-72.01570797180803, 47.48160934375985)),
-                            Coord::from((-72.00827089336076, 47.48259288568877)),
-                            Coord::from((-72.0033273068264, 47.47884826861245)),
-                            Coord::from((-71.99589052129716, 47.47983099262631)),
-                            Coord::from((-71.99339590378433, 47.48455852655395)),
-                            Coord::from((-71.98595799312544, 47.48554062539006)),
-                            Coord::from((-71.98346198977721, 47.490268128930836)),
-                            Coord::from((-71.98840505539671, 47.494013936021155)),
-                            Coord::from((-71.985908824193, 47.498741811384505)),
-                            Coord::from((-71.99085308174361, 47.50248779764889)),
-                            Coord::from((-71.99829383141038, 47.50150531344075)),
-                            Coord::from((-72.00323954212895, 47.50525088350742)),
-                            Coord::from((-72.01068058531455, 47.50426758066505)),]
-            ), Vec::new()));
+        assert_eq!(
+            result,
+            Polygon::new(
+                LineString(vec![
+                    Coord::from((-72.01068058531455, 47.50426758066505)),
+                    Coord::from((-72.01317449786164, 47.49953890080424)),
+                    Coord::from((-72.02061441417537, 47.49855497247617)),
+                    Coord::from((-72.02310694028151, 47.493826262508925)),
+                    Coord::from((-72.01816070992638, 47.490081882768266)),
+                    Coord::from((-72.02065300977287, 47.48535354476923)),
+                    Coord::from((-72.01570797180803, 47.48160934375985)),
+                    Coord::from((-72.00827089336076, 47.48259288568877)),
+                    Coord::from((-72.0033273068264, 47.47884826861245)),
+                    Coord::from((-71.99589052129716, 47.47983099262631)),
+                    Coord::from((-71.99339590378433, 47.48455852655395)),
+                    Coord::from((-71.98595799312544, 47.48554062539006)),
+                    Coord::from((-71.98346198977721, 47.490268128930836)),
+                    Coord::from((-71.98840505539671, 47.494013936021155)),
+                    Coord::from((-71.985908824193, 47.498741811384505)),
+                    Coord::from((-71.99085308174361, 47.50248779764889)),
+                    Coord::from((-71.99829383141038, 47.50150531344075)),
+                    Coord::from((-72.00323954212895, 47.50525088350742)),
+                    Coord::from((-72.01068058531455, 47.50426758066505)),
+                ]),
+                Vec::new()
+            )
+        );
     }
 
     #[test]
@@ -568,26 +593,32 @@ mod tests {
             assert!(cluster.add_when_neighboring(*cell));
         }
         let result = cluster.into_polygon();
-        assert_eq!(result, Polygon::new(
-            LineString(vec![Coord::from((122.8457610372325, 39.06100113491305)),
-                            Coord::from((122.8416728829429, 39.06268183911169)),
-                            Coord::from((122.8383387897483, 39.06019870263979)),
-                            Coord::from((122.83909264440105, 39.05603512914009)),
-                            Coord::from((122.83575918258151, 39.053552269053945)),
-                            Coord::from((122.83651308975003, 39.0493888730055)),
-                            Coord::from((122.84060008644289, 39.04770797092555)),
-                            Coord::from((122.84135367386305, 39.04354438630302)),
-                            Coord::from((122.8454405571582, 39.04186302846133)),
-                            Coord::from((122.848774431648, 39.04434535407648)),
-                            Coord::from((122.85286178008712, 39.04266363926978)),
-                            Coord::from((122.85619649217733, 39.04514597397362)),
-                            Coord::from((122.85544364967357, 39.04931029082535)),
-                            Coord::from((122.85877899337997, 39.05179290189006)),
-                            Coord::from((122.85802620373745, 39.05595739630494)),
-                            Coord::from((122.85393769766638, 39.057638913528464)),
-                            Coord::from((122.8531845881319, 39.06180321928758)),
-                            Coord::from((122.84909596841514, 39.06348428053087)),
-                            Coord::from((122.8457610372325, 39.06100113491305)),]
-            ), Vec::new()));
+        assert_eq!(
+            result,
+            Polygon::new(
+                LineString(vec![
+                    Coord::from((122.8457610372325, 39.06100113491305)),
+                    Coord::from((122.8416728829429, 39.06268183911169)),
+                    Coord::from((122.8383387897483, 39.06019870263979)),
+                    Coord::from((122.83909264440105, 39.05603512914009)),
+                    Coord::from((122.83575918258151, 39.053552269053945)),
+                    Coord::from((122.83651308975003, 39.0493888730055)),
+                    Coord::from((122.84060008644289, 39.04770797092555)),
+                    Coord::from((122.84135367386305, 39.04354438630302)),
+                    Coord::from((122.8454405571582, 39.04186302846133)),
+                    Coord::from((122.848774431648, 39.04434535407648)),
+                    Coord::from((122.85286178008712, 39.04266363926978)),
+                    Coord::from((122.85619649217733, 39.04514597397362)),
+                    Coord::from((122.85544364967357, 39.04931029082535)),
+                    Coord::from((122.85877899337997, 39.05179290189006)),
+                    Coord::from((122.85802620373745, 39.05595739630494)),
+                    Coord::from((122.85393769766638, 39.057638913528464)),
+                    Coord::from((122.8531845881319, 39.06180321928758)),
+                    Coord::from((122.84909596841514, 39.06348428053087)),
+                    Coord::from((122.8457610372325, 39.06100113491305)),
+                ]),
+                Vec::new()
+            )
+        );
     }
 }
