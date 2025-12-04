@@ -1,6 +1,6 @@
 database_url = "postgres://beacondb_user:password@localhost:5432"
 http_port = 8080
-h3_resolution = 8
+h3_resolution = 9
 
 [stats]
 path = "stats.json"
