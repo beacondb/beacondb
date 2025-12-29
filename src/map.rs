@@ -4,6 +4,7 @@ use crate::MapArgs;
 use anyhow::Result;
 use approx::{abs_diff_eq, relative_eq};
 use futures::{Stream, TryStreamExt};
+use geo::{BooleanOps, Translate};
 use geo_types::{Coord, LineString, Polygon};
 use geojson::Geometry;
 use h3o::{CellIndex, DirectedEdgeIndex};
@@ -11,10 +12,11 @@ use sqlx::{query_scalar, PgPool};
 use std::array::from_fn;
 use std::cell::Cell;
 use std::collections::VecDeque;
-use std::future::Ready;
 use std::io::{stdout, Write};
 use std::sync::mpsc::{sync_channel, SyncSender};
-use std::{future, thread};
+use std::thread;
+
+const EPSILON: f64 = 0.00000000001;
 
 /// A h3 cell including relevant information about its edges/neighbors.
 #[derive(Clone)]
@@ -22,10 +24,9 @@ struct CellData {
     /// H3 cell index for this cell.
     value: u64,
 
-    /// The number of edges in this cell. Normally 6, but 5 if this is a pentagon cell.
-    edge_cnt: usize,
-
-    /// The edges of this cell. Only the first [edge_cnt] entries in this array are valid.
+    /// The edges of this cell. There are 12 pentagon cells which have 5 edges, those will have the
+    /// 6th edge marked as consumed right from the start. This is faster than having a variable
+    /// number of edges because it allows the compiler to optimize for fixed length loops.
     edges: [EdgeData; 6],
 
     /// Flag to indicate this cell is fully processed and no longer relevant.
@@ -42,19 +43,20 @@ impl CellData {
     /// Panics if the index isn't a valid cell index.
     fn new(index: u64) -> Self {
         let cell = CellIndex::try_from(index).unwrap();
+        // Will normally return 6 edges, but 5 when this cell is a pentagon. In the latter case
+        // we mark the 6th cell consumed below.
         let mut edges = cell.edges();
 
         CellData {
             value: cell.into(),
             edges: from_fn(|_i| match edges.next() {
-                None => EdgeData::default(),
+                None => EdgeData::dummy(),
                 Some(e) => EdgeData {
                     destination: e.destination().into(),
-                    line: Cell::new(EdgeLine::Index(e)),
+                    line: e.into(),
                     consumed: Cell::new(false),
                 },
             }),
-            edge_cnt: if cell.is_pentagon() { 5 } else { 6 },
             consumed: Cell::new(false),
         }
     }
@@ -64,7 +66,7 @@ impl CellData {
     ///
     /// If [other] is found the matching edge is marked as [used](EdgeData.consumed).
     fn neighbors_with(&mut self, other: u64) -> bool {
-        for i in 0..self.edge_cnt {
+        for i in 0..6 {
             if self.edges[i].destination == other {
                 self.edges[i].mark_consumed();
                 return true;
@@ -78,7 +80,7 @@ impl CellData {
     /// Needed when we determined we are neighboring another cell, but did so by calling
     /// [is_neighbor_with] on the other cell.
     fn mark_neighbor_consumed(&self, other: u64) {
-        for i in 0..self.edge_cnt {
+        for i in 0..6 {
             if self.edges[i].destination == other {
                 self.edges[i].mark_consumed();
                 break;
@@ -96,8 +98,9 @@ impl CellData {
     }
 
     /// Checks if all edges are consumed and marks this cell as consumed if that is the case.
+    #[inline]
     fn is_enclosed(&self) -> bool {
-        for i in 0..self.edge_cnt {
+        for i in 0..6 {
             if !self.edges[i].consumed.get() {
                 return false;
             }
@@ -105,17 +108,6 @@ impl CellData {
         self.mark_consumed();
         true
     }
-}
-
-/// Enum representing an edge.
-///
-/// Initially initialized using a h3 DirectedEdgeIndex and replaced with the start and end
-/// coordinates once those are needed. This allows us to lazy load the coordinates saving the
-/// required calculations if we never end up using the edge.
-#[derive(Debug, Copy, Clone, PartialEq)]
-enum EdgeLine {
-    Index(DirectedEdgeIndex),
-    Coords(Coord, Coord),
 }
 
 /// Edge of a cell.
@@ -127,7 +119,8 @@ struct EdgeData {
     /// The h3 cell of the destination of this edge.
     destination: u64,
 
-    line: Cell<EdgeLine>,
+    /// The h3 edge index of this edge.
+    line: u64,
 
     /// Flag to indicate this edge is fully processed and no longer relevant.
     /// We use this flag because it's faster than actually removing the cell from a vector and more
@@ -137,50 +130,11 @@ struct EdgeData {
 
 impl EdgeData {
     /// Creates an empty edge, only used to fill dummy edges for pentagons.
-    const fn default() -> Self {
+    const fn dummy() -> Self {
         EdgeData {
             destination: 0,
-            line: Cell::new(EdgeLine::Coords(
-                Coord { x: 0.0, y: 0.0 },
-                Coord { x: 0.0, y: 0.0 },
-            )),
-            consumed: Cell::new(false),
-        }
-    }
-
-    /// Get the start coordinates of this edge.
-    ///
-    /// This will calculate the coordinates (both start and end) the first time they are needed and
-    /// keep them for future use.
-    #[inline]
-    fn start(&self) -> Coord {
-        match self.line.get() {
-            EdgeLine::Index(e) => {
-                let b = e.boundary();
-                let first = (*b.first().unwrap()).into();
-                self.line
-                    .set(EdgeLine::Coords(first, (*b.last().unwrap()).into()));
-                first
-            }
-            EdgeLine::Coords(s, _) => s,
-        }
-    }
-
-    /// Get the end coordinates of this edge.
-    ///
-    /// This will calculate the coordinates (both start and end) the first time they are needed and
-    /// keep them for future use.
-    #[inline]
-    fn end(&self) -> Coord {
-        match self.line.get() {
-            EdgeLine::Index(e) => {
-                let b = e.boundary();
-                let last = (*b.last().unwrap()).into();
-                self.line
-                    .set(EdgeLine::Coords((*b.first().unwrap()).into(), last));
-                last
-            }
-            EdgeLine::Coords(_, e) => e,
+            line: 0,
+            consumed: Cell::new(true),
         }
     }
 
@@ -194,6 +148,21 @@ impl EdgeData {
     }
 }
 
+/// Edge of a cell, converted to coordinates.
+#[derive(PartialEq)]
+struct EdgeCoords {
+    /// Start coordinates of this edge.
+    start: Coord,
+
+    /// End coordinates of this edge.
+    end: Coord,
+
+    /// Flag to indicate this edge is fully processed and no longer relevant.
+    /// We use this flag because it's faster than actually removing the cell from a vector and more
+    /// convenient than using `Option` in vectors because it allows for interior mutability.
+    consumed: Cell<bool>,
+}
+
 /// A cluster of adjacent h3 cells that can eventually be turned into a polygon.
 struct Cluster(Vec<CellData>);
 
@@ -201,7 +170,7 @@ impl Cluster {
     /// Creates a new filled with a single initial cell.
     fn new(initial: u64) -> Self {
         let initial = CellData::new(initial);
-        let mut result = Cluster(Vec::with_capacity(10));
+        let mut result = Cluster(Vec::with_capacity(20));
         result.0.push(initial);
         result
     }
@@ -248,7 +217,7 @@ impl Cluster {
                 } else {
                     for own_cell in &mut self.0 {
                         if !own_cell.consumed.get() && own_cell.value == connecting_cell {
-                            for j in 0..own_cell.edge_cnt {
+                            for j in 0..6 {
                                 if other.0[i].edges[j].consumed.get() {
                                     own_cell.edges[j].mark_consumed();
                                 }
@@ -261,44 +230,63 @@ impl Cluster {
         }
     }
 
-    /// Creates an iterator over all edges that have not been consumed yet.
-    #[inline]
-    fn free_edges(&self) -> impl Iterator<Item = &EdgeData> {
-        EdgeIterator::new(self)
-    }
-
     /// Convert the current cluster into a polygon.
-    fn into_polygon(self) -> Polygon {
+    ///
+    /// Will always return at least one polygon, but may return a second polygon if this cluster
+    /// crosses the antimeridian, in which case we split the polygon across the antimeridian.
+    fn into_polygon(self) -> Vec<Polygon> {
         // We collect all free edges, e.g. those directed towards a cell that's not part of the
         // cluster, as those are all going to become a line in the polygon.
-        let edges = self.free_edges();
+
+        let edges = self
+            .0
+            .iter()
+            .flat_map(|c| c.edges.iter().filter(|e| !e.consumed.get()))
+            .map(|e| {
+                let boundary = DirectedEdgeIndex::try_from(e.line).unwrap().boundary();
+                EdgeCoords {
+                    start: (*boundary.first().unwrap()).into(),
+                    end: (*boundary.last().unwrap()).into(),
+                    consumed: Cell::new(false),
+                }
+            })
+            .collect::<Vec<_>>();
+
+        let is_crossing = edges.iter().any(|e| {
+            // A check > 179 for cells at the zoom levels we use, and no need to check -179 as
+            // there will always be an edge in both directions.
+            e.start.x > 179.0 && e.start.x.is_sign_negative() != e.end.x.is_sign_negative()
+        });
 
         // We might have holes and need the outer ring to be output first. So we start at the most
         // northern edge as we can be sure this is on the outer ring.
         let first = edges
-            .max_by(|a, b| a.start().y.total_cmp(&b.start().y))
+            .iter()
+            .max_by(|a, b| a.start.y.total_cmp(&b.start.y))
             .unwrap();
 
-        let mut points = Vec::<Coord>::with_capacity(10);
+        let mut points = Vec::<Coord>::with_capacity(edges.len());
         let mut current = first;
         loop {
-            let mut edges = self.free_edges();
-            points.push(current.end());
+            points.push(current.end);
+            // No need to check consumed, there can only be one other edge at the same point (or
+            // a cell would be enclosed) and not checking seems faster.
             current = match edges
-                .find(|x| abs_diff_eq!(x.start(), current.end(), epsilon = 0.00000000001))
+                .iter()
+                .find(|x| abs_diff_eq!(x.start, current.end, epsilon = EPSILON))
             {
                 Some(x) => x,
                 None => {
                     break;
                 }
             };
-            current.mark_consumed();
+            current.consumed.set(true);
             if current == first {
-                points.push(current.end());
+                points.push(current.end);
                 break;
             }
         }
-        let outer = points;
+        let mut outer = points;
 
         // Now we need to do the inner loops, if any. We consumed the edges we used, so whatever is
         // left is part of some inner loop. Per geojson we need to do the inner polygons in the
@@ -306,26 +294,29 @@ impl Cluster {
         // happens automatically.
         let mut inners = Vec::<Vec<Coord>>::with_capacity(10);
         loop {
-            let mut edges = self.free_edges();
-
-            let first = edges.next();
+            // First collecting the remaining edges is faster then a filter iterator.
+            let edges = edges
+                .iter()
+                .filter(|x| !x.consumed.get())
+                .collect::<Vec<_>>();
+            let first = edges.first();
             match first {
                 None => break,
                 Some(first) => {
-                    let mut points = Vec::<Coord>::with_capacity(10);
+                    let mut points = Vec::<Coord>::with_capacity(100);
                     let mut current = first;
                     loop {
-                        points.push(current.end());
-                        let mut edges = self.free_edges();
+                        points.push(current.end);
+
+                        // No need to check consumed, there can only be one other edge at the same point (or
+                        // a cell would be enclosed) and not checking seems faster.
                         current = edges
-                            .find(|x| {
-                                relative_eq!(x.start(), current.end(), epsilon = 0.00000000001)
-                            })
+                            .iter()
+                            .find(|x| relative_eq!(x.start, current.end, epsilon = EPSILON))
                             .unwrap();
-                        current.mark_consumed();
+                        current.consumed.set(true);
                         if current == first {
-                            // points.push(current.start());
-                            points.push(current.end());
+                            points.push(current.end);
                             break;
                         }
                     }
@@ -334,60 +325,47 @@ impl Cluster {
             }
         }
 
-        let inners: Vec<_> = inners.into_iter().map(LineString::new).collect();
-        Polygon::new(LineString::new(outer), inners)
-    }
-}
-
-/// Custom iterator that loops over all cells and edges in a cluster returning only the cells that
-/// have not been consumed yet.
-///
-/// Customized to be able to mark cells as consumed when we find all their edges are consumed which
-/// gives us a marginal performance gain.
-struct EdgeIterator<'a> {
-    cluster: &'a Cluster,
-    c: usize,
-    e: usize,
-}
-
-impl<'a> EdgeIterator<'a> {
-    fn new(cluster: &'a Cluster) -> Self {
-        EdgeIterator {
-            cluster,
-            c: 0,
-            e: 0,
-        }
-    }
-}
-
-impl<'a> Iterator for EdgeIterator<'a> {
-    type Item = &'a EdgeData;
-
-    fn next(&mut self) -> Option<&'a EdgeData> {
-        loop {
-            if self.c >= self.cluster.0.len() {
-                return None;
+        if is_crossing {
+            // When crossing the antimeridian we 'adjust' points that are negative to become over
+            // 180º, which gives us a polygon with the correct shape, but with invalid coordinates.
+            // We get the intersection and difference with the valid earth coordinates which splits
+            // the polygon into polygons for both sides of the antimeridian. To make them valid
+            // again we convert the coordinates > 180º back to their original (negative) value.
+            // Could probably be optimized, but this case should be really rare.
+            outer.iter_mut().for_each(|o| {
+                if o.x.is_sign_negative() {
+                    o.x += 360.0
+                }
+            });
+            for inner in &mut inners {
+                inner.iter_mut().for_each(|o| {
+                    if o.x.is_sign_negative() {
+                        o.x += 360.0
+                    }
+                });
             }
 
-            if !self.cluster.0[self.c].consumed.get() {
-                let new = self.e == 0;
-                loop {
-                    if self.e >= self.cluster.0[self.c].edges.len() {
-                        break;
-                    }
-                    if !self.cluster.0[self.c].edges[self.e].consumed.get() {
-                        let edge = &self.cluster.0[self.c].edges[self.e];
-                        self.e += 1;
-                        return Some(edge);
-                    }
-                    self.e += 1;
-                }
-                if new {
-                    self.cluster.0[self.c].mark_consumed();
-                }
-            }
-            self.c += 1;
-            self.e = 0;
+            let inners: Vec<_> = inners.into_iter().map(LineString::new).collect();
+            let result = Polygon::new(LineString::new(outer), inners);
+
+            let split = Polygon::new(
+                LineString::new(vec![
+                    Coord::<f64>::from((-180.0, -90.0)),
+                    Coord::<f64>::from((180.0, -90.0)),
+                    Coord::<f64>::from((180.0, 90.0)),
+                    Coord::<f64>::from((-180.0, 90.0)),
+                    Coord::<f64>::from((-180.0, -90.0)),
+                ]),
+                Vec::new(),
+            );
+            let inside = result.intersection(&split);
+            let mut outside = result.difference(&split);
+            outside.translate_mut(-360.0, 0.0);
+            inside.into_iter().chain(outside).collect::<Vec<_>>()
+        } else {
+            let inners: Vec<_> = inners.into_iter().map(LineString::new).collect();
+            let result = Polygon::new(LineString::new(outer), inners);
+            vec![result]
         }
     }
 }
@@ -407,8 +385,7 @@ impl<'a> Iterator for EdgeIterator<'a> {
 pub async fn run(pool: PgPool, args: MapArgs) -> Result<()> {
     let q = query_scalar!("select h3 from map order by h3")
         .fetch(&pool)
-        .map_ok(convert)
-        .try_filter(antimeridian_filter);
+        .map_ok(convert);
 
     // We use a separate thread to convert the clusters of cells into polygons and print them to
     // stdout. A channel is used to send clusters to this thread, giving us some parallelization.
@@ -418,7 +395,10 @@ pub async fn run(pool: PgPool, args: MapArgs) -> Result<()> {
 
     let writer_thread = thread::spawn(move || {
         while let Some(cluster) = cluster_rx.iter().next() {
-            writeln!(out, "{}", Geometry::new((&cluster.into_polygon()).into())).unwrap();
+            let polygons = cluster.into_polygon();
+            for poly in polygons {
+                writeln!(out, "{}", Geometry::new((&poly).into())).unwrap();
+            }
         }
     });
 
@@ -480,21 +460,6 @@ fn convert(x: Vec<u8>) -> u64 {
     u64::from_be_bytes(x)
 }
 
-/// Filters cells that cross the antimeridian.
-fn antimeridian_filter(cell: &u64) -> Ready<bool> {
-    // FIXME: We should split output polygons at the antimeridian after which this can be removed.
-    // If we get a cell which crosses the antimeridian we get lines from -179.x to 179.x degrees
-    // which are then interpreted as shape that crosses across the other side of the earth. This
-    // results in horizontal lines being drawn across the map.
-    // Per geojson spec we should cut those into two shapes to prevent this from happening.
-    // See: https://datatracker.ietf.org/doc/html/rfc7946#section-3.1.9
-    let s: LineString = CellIndex::try_from(*cell).unwrap().boundary().into();
-    let is_crossing = s
-        .lines()
-        .any(|l| l.start.x.is_sign_negative() != l.end.x.is_sign_negative());
-    future::ready(!is_crossing)
-}
-
 #[cfg(test)]
 mod tests {
     use crate::map::{process, Cluster};
@@ -544,9 +509,10 @@ mod tests {
         for cell in cells.iter().skip(1) {
             assert!(cluster.add_when_neighboring(*cell));
         }
-        let result = cluster.into_polygon();
+        let polygons = cluster.into_polygon();
+        assert_eq!(polygons.len(), 1);
         assert_eq!(
-            result,
+            polygons[0],
             Polygon::new(
                 LineString(vec![
                     Coord::from((-72.01068058531455, 47.50426758066505)),
@@ -592,9 +558,10 @@ mod tests {
         for cell in cells.iter().skip(1) {
             assert!(cluster.add_when_neighboring(*cell));
         }
-        let result = cluster.into_polygon();
+        let polygons = cluster.into_polygon();
+        assert_eq!(polygons.len(), 1);
         assert_eq!(
-            result,
+            polygons[0],
             Polygon::new(
                 LineString(vec![
                     Coord::from((122.8457610372325, 39.06100113491305)),
@@ -616,6 +583,213 @@ mod tests {
                     Coord::from((122.8531845881319, 39.06180321928758)),
                     Coord::from((122.84909596841514, 39.06348428053087)),
                     Coord::from((122.8457610372325, 39.06100113491305)),
+                ]),
+                Vec::new()
+            )
+        );
+    }
+
+    #[test]
+    fn simple_antimeridian() {
+        let cells = [0x88719292b7fffff, 0x88719292b5fffff];
+        let mut cluster = Cluster::new(*cells.first().unwrap());
+        for cell in cells.iter().skip(1) {
+            assert!(cluster.add_when_neighboring(*cell));
+        }
+        let polygons = cluster.into_polygon();
+        assert_eq!(polygons.len(), 2);
+        assert_eq!(
+            polygons[0],
+            Polygon::new(
+                LineString(vec![
+                    Coord::from((179.9999999226187, 5.570534706115723)),
+                    Coord::from((179.99996320615753, 5.57046914100647)),
+                    Coord::from((179.9999999226187, 5.570393085479736)),
+                    Coord::from((179.9999999226187, 5.570534706115723)),
+                ]),
+                Vec::new()
+            )
+        );
+        assert_eq!(
+            polygons[1],
+            Polygon::new(
+                LineString(vec![
+                    Coord::from((-180.0000000773813, 5.570534706115723)),
+                    Coord::from((-180.0000000773813, 5.570393085479736)),
+                    Coord::from((-179.99805315126434, 5.566359519958496)),
+                    Coord::from((-179.99400098909393, 5.565949201583862)),
+                    Coord::from((-179.9920173465158, 5.56183934211731)),
+                    Coord::from((-179.98796470750824, 5.561428546905518)),
+                    Coord::from((-179.9858957110788, 5.565127849578857)),
+                    Coord::from((-179.9878795920755, 5.569237947463989)),
+                    Coord::from((-179.99193223108307, 5.569648265838623)),
+                    Coord::from((-179.99391611207977, 5.573758125305176)),
+                    Coord::from((-179.99796851266876, 5.57416844367981)),
+                    Coord::from((-180.0000000773813, 5.570534706115723)),
+                ]),
+                Vec::new()
+            )
+        );
+    }
+
+    #[test]
+    fn complex_antimeridian() {
+        let cells = [
+            0x880d9ecebdfffff,
+            0x880d9ecea3fffff,
+            0x880d9ecea7fffff,
+            0x880d9ecea5fffff,
+            0x880d9ecc53fffff,
+            0x880d9ecc5bfffff,
+            0x880d9ecee5fffff,
+            0x880d9ecee1fffff,
+            0x880d9eceebfffff,
+            0x880d9ecec7fffff,
+            0x880d9ecec3fffff,
+            0x880d9eceddfffff,
+            0x880d9ec537fffff,
+            0x880d9ec535fffff,
+            0x880d9ec523fffff,
+            0x880d9ec521fffff,
+            0x880d9ec525fffff,
+            0x880d9ece19fffff,
+            0x880d9ece1dfffff,
+            0x880d9ece15fffff,
+            0x880d9ece3bfffff,
+            0x880d9ece33fffff,
+        ];
+        let mut cluster = Cluster::new(*cells.first().unwrap());
+        for cell in cells.iter().skip(1) {
+            assert!(cluster.add_when_neighboring(*cell));
+        }
+        let polygons = cluster.into_polygon();
+        assert_eq!(polygons.len(), 3);
+
+        assert_eq!(
+            polygons[0],
+            Polygon::new(
+                LineString(vec![
+                    Coord::from((179.93330854833243, 65.08215880393982)),
+                    Coord::from((179.92669052541373, 65.07793855667114)),
+                    Coord::from((179.93197912633536, 65.0735604763031)),
+                    Coord::from((179.94388288915275, 65.073401927948)),
+                    Coord::from((179.94916696012137, 65.0690233707428)),
+                    Coord::from((179.94255012929557, 65.06480431556702)),
+                    Coord::from((179.94783276975272, 65.06042623519897)),
+                    Coord::from((179.9412185615313, 65.05620741844177)),
+                    Coord::from((179.9464995330584, 65.05182957649231)),
+                    Coord::from((179.95839209020255, 65.05167007446289)),
+                    Coord::from((179.96366877019523, 65.04729199409485)),
+                    Coord::from((179.97555846631644, 65.04713129997253)),
+                    Coord::from((179.9808308547747, 65.04275274276733)),
+                    Coord::from((179.99271768987296, 65.04259061813354)),
+                    Coord::from((179.9993364280474, 65.04680681228638)),
+                    Coord::from((179.99999994695304, 65.04679775238037)),
+                    Coord::from((179.99999994695304, 65.05496382713318)),
+                    Coord::from((179.99406666219352, 65.05118584632874)),
+                    Coord::from((179.98217553556083, 65.0513482093811)),
+                    Coord::from((179.9769017165911, 65.05572700500488)),
+                    Coord::from((179.96500772893546, 65.05588793754578)),
+                    Coord::from((179.95972938001273, 65.06026649475098)),
+                    Coord::from((179.9663478797686, 65.06448459625244)),
+                    Coord::from((179.9610678619158, 65.06886339187622)),
+                    Coord::from((179.96768874585746, 65.07308173179626)),
+                    Coord::from((179.97959107816337, 65.07292008399963)),
+                    Coord::from((179.98621601522086, 65.07713747024536)),
+                    Coord::from((179.99811953961967, 65.07697463035583)),
+                    Coord::from((179.99999994695304, 65.07817077636719)),
+                    Coord::from((179.99999994695304, 65.08590722084045)),
+                    Coord::from((179.99947256505607, 65.08557176589966)),
+                    Coord::from((179.98756474912284, 65.08573508262634)),
+                    Coord::from((179.98093718946097, 65.08151745796204)),
+                    Coord::from((179.96903080403922, 65.08167934417725)),
+                    Coord::from((179.9624072974932, 65.07746076583862)),
+                    Coord::from((179.95050210416434, 65.07762098312378)),
+                    Coord::from((179.94521636426566, 65.08200001716614)),
+                    Coord::from((179.95183820188163, 65.0862193107605)),
+                    Coord::from((179.9465507930529, 65.09059858322144)),
+                    Coord::from((179.95317525327323, 65.09481811523438)),
+                    Coord::from((179.94788617551444, 65.09919762611389)),
+                    Coord::from((179.95451349675773, 65.10341715812683)),
+                    Coord::from((179.9664310878527, 65.10325646400452)),
+                    Coord::from((179.97306222379325, 65.10747528076172)),
+                    Coord::from((179.9849812453997, 65.10731267929077)),
+                    Coord::from((179.9916164344561, 65.11153078079224)),
+                    Coord::from((179.99999994695304, 65.11141538619995)),
+                    Coord::from((179.99999994695304, 65.12003350257874)),
+                    Coord::from((179.99296898305533, 65.12013030052185)),
+                    Coord::from((179.98633117139457, 65.11591219902039)),
+                    Coord::from((179.9744078582537, 65.11607480049133)),
+                    Coord::from((179.96777409970878, 65.11185598373413)),
+                    Coord::from((179.95585245549796, 65.1120171546936)),
+                    Coord::from((179.94922275006888, 65.1077971458435)),
+                    Coord::from((179.93730229795096, 65.1079568862915)),
+                    Coord::from((179.93067664563773, 65.10373616218567)),
+                    Coord::from((179.93597001493094, 65.09935688972473)),
+                    Coord::from((179.92934698522208, 65.09513664245605)),
+                    Coord::from((179.93463868558524, 65.0907576084137)),
+                    Coord::from((179.92801827848075, 65.08653736114502)),
+                    Coord::from((179.93330854833243, 65.08215880393982)),
+                ]),
+                Vec::new(),
+            )
+        );
+
+        assert_eq!(
+            polygons[1],
+            Polygon::new(
+                LineString(vec![
+                    Coord::from((-180.00000005304696, 65.05496382713318)),
+                    Coord::from((-180.00000005304696, 65.04679775238037)),
+                    Coord::from((-179.98877530634286, 65.04664301872253)),
+                    Coord::from((-179.98215251505258, 65.05085825920105)),
+                    Coord::from((-179.97026305734994, 65.05069327354431)),
+                    Coord::from((-179.9636362129438, 65.05490756034851)),
+                    Coord::from((-179.96890049517037, 65.05928826332092)),
+                    Coord::from((-179.98079424440743, 65.05945348739624)),
+                    Coord::from((-179.9874196583021, 65.05523824691772)),
+                    Coord::from((-179.99931197702767, 65.05540204048157)),
+                    Coord::from((-180.00000005304696, 65.05496382713318)),
+                ]),
+                Vec::new()
+            )
+        );
+
+        assert_eq!(
+            polygons[2],
+            Polygon::new(
+                LineString(vec![
+                    Coord::from((-180.00000005304696, 65.08590722084045)),
+                    Coord::from((-180.00000005304696, 65.07817077636719)),
+                    Coord::from((-179.995251470207, 65.08119106292725)),
+                    Coord::from((-179.98334627687814, 65.08102655410767)),
+                    Coord::from((-179.97671323358895, 65.08524250984192)),
+                    Coord::from((-179.9648068481672, 65.08507633209229)),
+                    Coord::from((-179.95816975176217, 65.08929133415222)),
+                    Coord::from((-179.94626193582894, 65.08912372589111)),
+                    Coord::from((-179.93962078630807, 65.09333801269531)),
+                    Coord::from((-179.94488864481332, 65.09772062301636)),
+                    Coord::from((-179.93824487268807, 65.10193514823914)),
+                    Coord::from((-179.94351463854196, 65.10631823539734)),
+                    Coord::from((-179.95543079912545, 65.1064863204956)),
+                    Coord::from((-179.96070461809518, 65.11086916923523)),
+                    Coord::from((-179.97262363970162, 65.1110360622406)),
+                    Coord::from((-179.97790198862435, 65.11541843414307)),
+                    Coord::from((-179.98982363283517, 65.11558413505554)),
+                    Coord::from((-179.99510627329232, 65.11996626853943)),
+                    Coord::from((-180.00000005304696, 65.12003350257874)),
+                    Coord::from((-180.00000005304696, 65.11141538619995)),
+                    Coord::from((-179.996463113426, 65.11136674880981)),
+                    Coord::from((-179.9911821418989, 65.10698509216309)),
+                    Coord::from((-179.97926455080392, 65.10681986808777)),
+                    Coord::from((-179.97398787081124, 65.10243773460388)),
+                    Coord::from((-179.96207314073922, 65.10227108001709)),
+                    Coord::from((-179.95680075228097, 65.09788870811462)),
+                    Coord::from((-179.96344047129037, 65.09367346763611)),
+                    Coord::from((-179.97535090982797, 65.09383964538574)),
+                    Coord::from((-179.98198657572152, 65.08962368965149)),
+                    Coord::from((-179.99389582216622, 65.08978867530823)),
+                    Coord::from((-180.00000005304696, 65.08590722084045)),
                 ]),
                 Vec::new()
             )
