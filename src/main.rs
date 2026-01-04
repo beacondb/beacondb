@@ -91,7 +91,7 @@ async fn main() -> Result<()> {
         Command::Process => submission::process::run(pool, config).await?,
         Command::Map(a) => map::run(pool, a).await?,
 
-        Command::Bulk { command } => bulk::run(pool, command).await?,
+        Command::Bulk { command } => bulk::run(pool, config, command).await?,
 
         Command::ImportGeoip => geoip::import::run(pool).await?,
         Command::FormatMls => mls::format()?,
