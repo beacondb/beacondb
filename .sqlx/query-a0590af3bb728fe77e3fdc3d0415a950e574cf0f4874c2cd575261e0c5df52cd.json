@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select id, user_agent, raw from report",
+  "query": "select id, submitted_at, user_agent, raw from report",
   "describe": {
     "columns": [
       {
@@ -10,11 +10,16 @@
       },
       {
         "ordinal": 1,
+        "name": "submitted_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 2,
         "name": "user_agent",
         "type_info": "Text"
       },
       {
-        "ordinal": 2,
+        "ordinal": 3,
         "name": "raw",
         "type_info": "Bytea"
       }
@@ -24,9 +29,10 @@
     },
     "nullable": [
       false,
+      false,
       true,
       false
     ]
   },
-  "hash": "aaf389b2b33691dd16c068d84cd37852841e1f43c3f4f184ac249cd26aa9f38b"
+  "hash": "a0590af3bb728fe77e3fdc3d0415a950e574cf0f4874c2cd575261e0c5df52cd"
 }

@@ -5,11 +5,11 @@ use std::path::{Path, PathBuf};
 
 use actix_web::{web, App, HttpServer};
 use anyhow::Result;
-use clap::{Parser, Subcommand};
+use clap::{Args, Parser, Subcommand};
 use sqlx::PgPool;
 
-mod archive;
 mod bounds;
+mod bulk;
 mod config;
 mod geoip;
 mod geolocate;
@@ -28,6 +28,16 @@ struct Cli {
     command: Command,
 }
 
+#[derive(Debug, Args)]
+struct MapArgs {
+    /// Size of the lookback buffer used when merging cells.
+    ///
+    /// A larger lookback buffer will find more clusters of cells that can be merged, but will be
+    /// slower and use more memory.
+    #[arg(short, long, default_value_t = 20)]
+    lookback_size: usize,
+}
+
 /// Subcommands of the cli parser
 #[derive(Debug, Subcommand)]
 enum Command {
@@ -36,11 +46,11 @@ enum Command {
     /// Process newly submitted reports
     Process,
     /// Export a map of all data as h3 hexagons
-    Map,
+    Map(MapArgs),
     /// Archive reports out of the database
-    Archive {
+    Bulk {
         #[clap(subcommand)]
-        command: archive::ArchiveCommand,
+        command: bulk::BulkCommand,
     },
     /// Reformat data to the MLS format
     FormatMls,
@@ -72,16 +82,16 @@ async fn main() -> Result<()> {
                     .service(geolocate::service)
                     .service(submission::geosubmit::service)
             })
-            .bind(("0.0.0.0", config.http_port))?
+            .bind(("::", config.http_port))?
             .run()
             .await?;
             println!("Gracefully stopped beaconDB server");
         }
 
         Command::Process => submission::process::run(pool, config).await?,
-        Command::Map => map::run(pool).await?,
+        Command::Map(a) => map::run(pool, a).await?,
 
-        Command::Archive { command } => archive::run(pool, command).await?,
+        Command::Bulk { command } => bulk::run(pool, config, command).await?,
 
         Command::ImportGeoip => geoip::import::run(pool).await?,
         Command::FormatMls => mls::format()?,

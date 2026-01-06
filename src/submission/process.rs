@@ -37,7 +37,7 @@ use geo::{Destination, Point, Rhumb};
 use h3o::LatLng;
 use h3o::Resolution;
 use serde::Serialize;
-use sqlx::{query, query_scalar, PgPool};
+use sqlx::{PgPool, query, query_scalar};
 
 use crate::{bounds::TransmitterLocation, config::Config, model::Transmitter};
 
@@ -74,7 +74,7 @@ pub async fn run(pool: PgPool, config: Config) -> Result<()> {
             .execute(&mut *tx)
             .await?;
 
-            let (pos, txs) = match super::report::extract(&report.raw) {
+            let loaded_report = match super::report::load(&report.raw) {
                 Ok(x) => x,
                 Err(e) => {
                     eprintln!(
@@ -93,8 +93,9 @@ pub async fn run(pool: PgPool, config: Config) -> Result<()> {
                 }
             };
 
-            if txs.is_empty() {
-                continue;
+            let (pos, txs) = match loaded_report {
+                Some(x) => x,
+                None => continue, // report was ignored
             };
 
             for x in txs {
@@ -126,7 +127,7 @@ pub async fn run(pool: PgPool, config: Config) -> Result<()> {
                     // it, the data point would be located even further away
                     // (22.22 m in the given example)
                     if let Some(heading) = pos.heading {
-                        let transmitter_scan_pos = Rhumb::destination(
+                        let transmitter_scan_pos = Rhumb.destination(
                             Point::new(pos.latitude, pos.longitude),
                             heading,
                             -distance_since_scan,
@@ -253,7 +254,9 @@ pub async fn run(pool: PgPool, config: Config) -> Result<()> {
         }
 
         tx.commit().await?;
-        eprintln!("processed reports up to #{last_report_in_batch} - {modified_count} transmitters modified");
+        eprintln!(
+            "processed reports up to #{last_report_in_batch} - {modified_count} transmitters modified"
+        );
     }
 
     if let Some(config_stats) = config.stats {

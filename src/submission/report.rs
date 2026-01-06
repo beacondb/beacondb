@@ -9,7 +9,7 @@ use crate::model::{CellRadio, Transmitter};
 /// Serde representation to deserialize report
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct Report {
+pub struct Report {
     #[allow(dead_code)]
     timestamp: u64,
     position: Position,
@@ -25,10 +25,13 @@ pub struct Position {
     pub longitude: f64,
     #[serde(default)]
     pub speed: Option<f64>,
+    #[serde(default)]
+    pub accuracy: Option<f64>,
+    #[serde(default)]
+    pub altitude: Option<f64>,
     // Tower Collector does not send age field
     #[serde(default)]
-    pub age: Option<u32>,
-    pub accuracy: Option<f64>,
+    pub age: Option<i32>,
     pub heading: Option<f64>,
 }
 
@@ -50,7 +53,7 @@ struct Cell {
     primary_scrambling_code: Option<u16>,
     // Tower Collector does not send age field
     #[serde(default)]
-    age: Option<u32>,
+    age: Option<i32>,
 
     // Signal can be between -44 dBm and -140 dBm according to https://android.stackexchange.com/questions/167650/acceptable-signal-strength-ranges-for-2g-3g-and-4g
     // so we need to store it on an i16 as i8 would overflow
@@ -66,7 +69,7 @@ struct Cell {
 #[serde(rename_all = "lowercase")]
 enum RadioType {
     Gsm,
-    #[serde(rename = "wcdma")]
+    #[serde(alias = "wcdma")]
     Umts,
     Lte,
     Nr,
@@ -79,7 +82,7 @@ struct Wifi {
     mac_address: MacAddress,
     ssid: Option<String>,
     #[serde(default)]
-    age: Option<u32>,
+    age: Option<i32>,
     signal_strength: Option<i16>,
 }
 
@@ -89,11 +92,11 @@ struct Wifi {
 struct Bluetooth {
     mac_address: MacAddress,
     #[serde(default)]
-    age: Option<u32>,
+    age: Option<i32>,
     signal_strength: Option<i16>,
 }
 
-fn should_be_ignored(position: &Position, transmitter_age: Option<u32>) -> bool {
+fn should_ignore_transmitter(position: &Position, transmitter_age: Option<i32>) -> bool {
     if let Some(transmitter_age) = transmitter_age {
         if let Some(position_age) = position.age {
             let position_transmitter_diff_age: u32 = position_age.abs_diff(transmitter_age);
@@ -159,71 +162,99 @@ fn signal_strength(cell: &Cell) -> Option<i16> {
     None
 }
 
-/// Extract the position and the submitted transmitters from the raw data
-pub fn extract(raw: &[u8]) -> Result<(Position, Vec<Transmitter>)> {
-    let parsed: Report = serde_json::from_slice(raw)?;
+/// basic checks to filter reports that should not be processed.
+fn should_ignore_report(parsed: &Report) -> bool {
+    // accuracy should not be larger than 250m
+    if parsed.position.accuracy.is_some_and(|x| x > 250.0) {
+        return true;
+    }
 
-    let mut txs = Vec::new();
-    for cell in parsed.cell_towers.unwrap_or_default() {
-        if should_be_ignored(&parsed.position, cell.age) {
-            continue;
+    // altitude should not be higher than 5km, to ignore planes
+    //
+    // joelkoen 2025-11-04: I've manually checked this filter against 2025-01-01..2025-10-31, and the only reports
+    // this picked up that didn't seem to be from planes were some really funky gps fixes, such as the spoofing
+    // around Volgograd, Russia.
+    if parsed.position.altitude.is_some_and(|x| x > 5_000.0) {
+        return true;
+    }
+
+    false
+}
+
+/// Loads a report's raw JSON data and returns parsed information that should be then used to update the database.
+/// Will return None if the report has data quality issues and should therefore be completely ignored.
+pub fn load(raw: &[u8]) -> Result<Option<(Position, Vec<Transmitter>)>> {
+    let parsed: Report = serde_json::from_slice(raw)?;
+    parsed.load()
+}
+
+impl Report {
+    pub fn load(self) -> Result<Option<(Position, Vec<Transmitter>)>> {
+        if should_ignore_report(&self) {
+            return Ok(None);
         }
-        if cell.mobile_country_code == 0
+
+        let mut txs = Vec::new();
+        for cell in self.cell_towers.unwrap_or_default() {
+            if should_ignore_transmitter(&self.position, cell.age) {
+                continue;
+            }
+            if cell.mobile_country_code == 0
                 // || cell.mobile_network_code == 0 // this is valid
                 || cell.location_area_code.unwrap_or(0) == 0
                 || cell.cell_id.unwrap_or(0) == 0
                 || cell.primary_scrambling_code.is_none()
-        {
-            // TODO: reuse previous cell tower data
-            continue;
-        }
+            {
+                // TODO: reuse previous cell tower data
+                continue;
+            }
 
-        txs.push(Transmitter::Cell {
-            radio: match cell.radio_type {
-                RadioType::Gsm => CellRadio::Gsm,
-                RadioType::Umts => CellRadio::Wcdma,
-                RadioType::Lte => CellRadio::Lte,
-                RadioType::Nr => CellRadio::Nr,
-            },
-            // postgres uses signed integers
-            country: cell.mobile_country_code as i16,
-            network: cell.mobile_network_code as i16,
-            area: cell.location_area_code.unwrap() as i32,
-            cell: cell.cell_id.unwrap() as i64,
-            unit: cell.primary_scrambling_code.unwrap() as i16,
-            signal_strength: signal_strength(&cell),
-            age: cell.age.map(Into::into),
-        })
-    }
-    for wifi in parsed.wifi_access_points.unwrap_or_default() {
-        if should_be_ignored(&parsed.position, wifi.age) {
-            continue;
+            txs.push(Transmitter::Cell {
+                radio: match cell.radio_type {
+                    RadioType::Gsm => CellRadio::Gsm,
+                    RadioType::Umts => CellRadio::Wcdma,
+                    RadioType::Lte => CellRadio::Lte,
+                    RadioType::Nr => CellRadio::Nr,
+                },
+                // postgres uses signed integers
+                country: cell.mobile_country_code as i16,
+                network: cell.mobile_network_code as i16,
+                area: cell.location_area_code.unwrap() as i32,
+                cell: cell.cell_id.unwrap() as i64,
+                unit: cell.primary_scrambling_code.unwrap() as i16,
+                signal_strength: signal_strength(&cell),
+                age: cell.age.map(Into::into),
+            })
         }
-        // ignore hidden networks
-        let ssid = wifi
-            .ssid
-            .map(|x| x.replace('\0', ""))
-            .filter(|x| !x.is_empty());
-        if ssid.is_some_and(|x| !x.contains("_nomap") && !x.contains("_optout")) {
-            txs.push(Transmitter::Wifi {
-                mac: wifi.mac_address,
-                signal_strength: wifi.signal_strength,
-                age: wifi.age.map(Into::into),
-            });
+        for wifi in self.wifi_access_points.unwrap_or_default() {
+            if should_ignore_transmitter(&self.position, wifi.age) {
+                continue;
+            }
+            // ignore hidden networks
+            let ssid = wifi
+                .ssid
+                .map(|x| x.replace('\0', ""))
+                .filter(|x| !x.is_empty());
+            if ssid.is_some_and(|x| !x.contains("_nomap") && !x.contains("_optout")) {
+                txs.push(Transmitter::Wifi {
+                    mac: wifi.mac_address,
+                    signal_strength: wifi.signal_strength,
+                    age: wifi.age.map(Into::into),
+                });
+            }
         }
-    }
-    for bt in parsed.bluetooth_beacons.unwrap_or_default() {
-        if should_be_ignored(&parsed.position, bt.age) {
-            continue;
+        for bt in self.bluetooth_beacons.unwrap_or_default() {
+            if should_ignore_transmitter(&self.position, bt.age) {
+                continue;
+            }
+            txs.push(Transmitter::Bluetooth {
+                mac: bt.mac_address,
+                signal_strength: bt.signal_strength,
+                age: bt.age.map(Into::into),
+            })
         }
-        txs.push(Transmitter::Bluetooth {
-            mac: bt.mac_address,
-            signal_strength: bt.signal_strength,
-            age: bt.age.map(Into::into),
-        })
+        Ok(Some((self.position, txs)))
     }
-
-    Ok((parsed.position, txs))
 }
 
 #[cfg(test)]

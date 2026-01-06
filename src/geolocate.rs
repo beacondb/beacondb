@@ -18,14 +18,16 @@
 
 use std::{collections::BTreeSet, str::FromStr};
 
-use actix_web::{error::ErrorInternalServerError, post, web, HttpRequest, HttpResponse};
+use actix_web::http::header;
+use actix_web::http::header::HeaderValue;
+use actix_web::{Error, HttpRequest, HttpResponse, error::ErrorInternalServerError, post, web};
 use anyhow::Context;
 use geo::{Distance, Haversine};
 use ipnetwork::IpNetwork;
 use mac_address::MacAddress;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use sqlx::{query, query_as, query_file, PgPool};
+use sqlx::{PgPool, query, query_as, query_file};
 
 use crate::{
     bounds::{Bounds, TransmitterLocation},
@@ -110,7 +112,7 @@ impl From<Bounds> for LocationResponse {
     fn from(value: Bounds) -> Self {
         let (min, max) = value.points();
         let center = (min + max) / 2.0;
-        let acc = Haversine::distance(min, center);
+        let acc = Haversine.distance(min, center);
         let (lon, lat) = center.x_y();
         Self::new(lat, lon, acc.max(50.0))
     }
@@ -126,11 +128,21 @@ struct Location {
 /// Main entrypoint to geolocate a client.
 #[post("/v1/geolocate")]
 pub async fn service(
-    data: Option<web::Json<LocationRequest>>,
+    data: Result<web::Json<LocationRequest>, Error>,
     pool: web::Data<PgPool>,
     req: HttpRequest,
 ) -> actix_web::Result<HttpResponse> {
-    let data = data.map(|x| x.into_inner()).unwrap_or_default();
+    let data = match data {
+        Ok(v) => v.into_inner(),
+        // Firefox sends `Content-Type: application/json` with an empty body
+        Err(_)
+            if req.headers().get(header::CONTENT_LENGTH)
+                == Some(&HeaderValue::from_static("0")) =>
+        {
+            LocationRequest::default()
+        }
+        Err(e) => return Err(e),
+    };
     let pool = pool.into_inner();
 
     let mut latw = 0.0;
@@ -155,7 +167,7 @@ pub async fn service(
         if let Some(row) = row {
             let (min, max) = row.points();
             let center = (min + max) / 2.0;
-            let r = Haversine::distance(min, center);
+            let r = Haversine.distance(min, center);
 
             // Based on old accuracy algorithm (bounding box) as weighted
             // average "accuracy" data can't detect moving AP
