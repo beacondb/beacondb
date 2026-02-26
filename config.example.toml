@@ -1,4 +1,9 @@
+# Configures how BeaconDB will connect to PostgreSQL
+# To connect over a UNIX socket:
 database_url = "postgres:///beacondb"
+# Or, connect using TCP/IP:
+# database_url = "postgres://username:password@localhost:5432"
+
 http_port = 8080
 h3_resolution = 8
 
