@@ -39,17 +39,17 @@ pub struct Position {
 #[serde(rename_all = "camelCase")]
 struct Cell {
     radio_type: RadioType,
-    mobile_country_code: u16,
-    mobile_network_code: u16,
-    // NeoStumbler/18 send {"locationAreaCode":null}
+
+    // these values can all be null if this is a neighbouring cell tower
+    mobile_country_code: Option<u16>,
+    mobile_network_code: Option<u16>,
     #[serde(default)]
     location_area_code: Option<u32>, // u24 in db
-    // NeoStumbler/18 send {"cellId":null}
     #[serde(default)]
     cell_id: Option<u64>,
-    // NeoStumbler/18 send {"primaryScramblingCode":null}
     #[serde(default)]
     primary_scrambling_code: Option<u16>,
+
     // Tower Collector does not send age field
     #[serde(default)]
     age: Option<i32>,
@@ -143,16 +143,27 @@ impl Report {
             if should_ignore_transmitter(&self.position, cell.age) {
                 continue;
             }
-            if cell.mobile_country_code == 0
-                // || cell.mobile_network_code == 0 // this is valid
+
+            // if these values are 0/null, this tower is likely a neighbouring cell tower (cell.serving == 0)
+            // neighbouring cell towers have not been implemented yet, so they are ignored
+            let country = match cell.mobile_country_code {
+                Some(x) => x as i16,
+                None => continue,
+            };
+            let network = match cell.mobile_network_code {
+                Some(x) => x as i16,
+                None => continue,
+            };
+            if country == 0
+                // || network == 0 // is valid
                 || cell.location_area_code.unwrap_or(0) == 0
                 || cell.cell_id.unwrap_or(0) == 0
                 || cell.primary_scrambling_code.is_none()
             {
-                // TODO: reuse previous cell tower data
                 continue;
             }
 
+            // signed integers as postgres only supports signed integers
             txs.push(Transmitter::Cell {
                 radio: match cell.radio_type {
                     RadioType::Gsm => CellRadio::Gsm,
@@ -160,9 +171,8 @@ impl Report {
                     RadioType::Lte => CellRadio::Lte,
                     RadioType::Nr => CellRadio::Nr,
                 },
-                // postgres uses signed integers
-                country: cell.mobile_country_code as i16,
-                network: cell.mobile_network_code as i16,
+                country,
+                network,
                 area: cell.location_area_code.unwrap() as i32,
                 cell: cell.cell_id.unwrap() as i64,
                 unit: cell.primary_scrambling_code.unwrap() as i16,
