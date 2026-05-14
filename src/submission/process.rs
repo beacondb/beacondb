@@ -128,11 +128,11 @@ pub async fn run(pool: PgPool, config: Config) -> Result<()> {
                     // (22.22 m in the given example)
                     if let Some(heading) = pos.heading {
                         let transmitter_scan_pos = Rhumb.destination(
-                            Point::new(pos.latitude, pos.longitude),
+                            Point::new(pos.longitude, pos.latitude),
                             heading,
                             -distance_since_scan,
                         );
-                        (lat, lon) = transmitter_scan_pos.x_y();
+                        (lon, lat) = transmitter_scan_pos.x_y();
                     } else {
                         lat = pos.latitude;
                         lon = pos.longitude;
