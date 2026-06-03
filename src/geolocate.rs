@@ -20,16 +20,21 @@ use std::{collections::BTreeSet, str::FromStr};
 
 use actix_web::http::header;
 use actix_web::http::header::HeaderValue;
-use actix_web::{error::ErrorInternalServerError, post, web, Error, HttpRequest, HttpResponse};
+use actix_web::{Error, HttpRequest, HttpResponse, error::ErrorInternalServerError, post, web};
 use anyhow::Context;
 use geo::{Distance, Haversine};
 use ipnetwork::IpNetwork;
 use mac_address::MacAddress;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use sqlx::{query, query_as, query_file, PgPool};
+use sqlx::{PgPool, query, query_as, query_file};
 
-use crate::{bounds::Bounds, model::CellRadio};
+use crate::{
+    bounds::{Bounds, TransmitterLocation},
+    model::CellRadio,
+};
+
+const SIGNAL_DROP_COEFFICIENT: f64 = 3.0;
 
 /// Serde representation of the client's request
 #[derive(Debug, Deserialize, Default)]
@@ -89,7 +94,7 @@ impl LocationResponse {
 
         LocationResponse {
             location: Location { lat, lng: lon },
-            accuracy: (acc.round() as i64).max(50),
+            accuracy: (acc.round() as i64),
         }
     }
 
@@ -109,7 +114,7 @@ impl From<Bounds> for LocationResponse {
         let center = (min + max) / 2.0;
         let acc = Haversine.distance(min, center);
         let (lon, lat) = center.x_y();
-        Self::new(lat, lon, acc)
+        Self::new(lat, lon, acc.max(50.0))
     }
 }
 
@@ -151,18 +156,9 @@ pub async fn service(
             continue;
         }
 
-        let signal = match x.signal_strength.unwrap_or_default() {
-            0 => -80,
-            -50..=0 => -50,
-            x if (-100..-50).contains(&x) => x,
-            // ..-80 => -80,
-            _ => continue,
-        };
-        let weight = ((1.0 / (signal as f64 - 20.0).powi(2)) * 10000.0).powi(2);
-
         let row = query_as!(
-            Bounds,
-            "select min_lat, min_lon, max_lat, max_lon from wifi where mac = $1",
+            TransmitterLocation,
+            "select min_lat, min_lon, max_lat, max_lon, lat, lon, accuracy, total_weight from wifi where mac = $1",
             &x.mac_address
         )
         .fetch_optional(&*pool)
@@ -172,12 +168,18 @@ pub async fn service(
             let (min, max) = row.points();
             let center = (min + max) / 2.0;
             let r = Haversine.distance(min, center);
-            let (lon, lat) = center.x_y();
 
+            // Based on old accuracy algorithm (bounding box) as weighted
+            // average "accuracy" data can't detect moving AP
             if (1.0..=500.0).contains(&r) {
-                latw += lat * weight;
-                lonw += lon * weight;
-                rw += r * weight;
+                // At this point, we can use the real coordinates
+                let weight = 10_f64.powf(
+                    x.signal_strength.unwrap_or_default() as f64 / (10.0 * SIGNAL_DROP_COEFFICIENT),
+                );
+
+                latw += row.lat * weight;
+                lonw += row.lon * weight;
+                rw += row.accuracy * weight;
                 ww += weight;
                 c += 1;
             }
@@ -209,7 +211,7 @@ pub async fn service(
                 x.radio_type as i16, x.mobile_country_code, x.mobile_network_code, x.location_area_code, x.cell_id, unit
             ).fetch_optional(&*pool).await.map_err(ErrorInternalServerError)?;
             if let Some(row) = row {
-                return LocationResponse::new(row.lat, row.lon, row.radius).respond();
+                return LocationResponse::new(row.lat, row.lon, row.radius.max(50.0)).respond();
             }
         } else {
             let row = query_as!(Bounds,"select min_lat, min_lon, max_lat, max_lon from cell where radio = $1 and country = $2 and network = $3 and area = $4 and cell = $5",
@@ -223,7 +225,7 @@ pub async fn service(
                 x.radio_type as i16, x.mobile_country_code, x.mobile_network_code, x.location_area_code, x.cell_id
             ).fetch_optional(&*pool).await.map_err(ErrorInternalServerError)?;
             if let Some(row) = row {
-                return LocationResponse::new(row.lat, row.lon, row.radius).respond();
+                return LocationResponse::new(row.lat, row.lon, row.radius.max(50.0)).respond();
             }
         }
     }
