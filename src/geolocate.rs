@@ -16,6 +16,7 @@
 //! WiFi networks are ignored if the bounding box if spans more less than 1m or
 //! more than 500m to filter out moving access points.
 
+use std::net::IpAddr;
 use std::{collections::BTreeSet, str::FromStr};
 
 use actix_web::http::header;
@@ -23,12 +24,12 @@ use actix_web::http::header::HeaderValue;
 use actix_web::{error::ErrorInternalServerError, post, web, Error, HttpRequest, HttpResponse};
 use anyhow::Context;
 use geo::{Distance, Haversine};
-use ipnetwork::IpNetwork;
 use mac_address::MacAddress;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use sqlx::{query, query_as, query_file, PgPool};
+use sqlx::{query, query_as, PgPool};
 
+use crate::geoip::MMDB;
 use crate::{bounds::Bounds, model::CellRadio};
 
 /// Serde representation of the client's request
@@ -115,9 +116,9 @@ impl From<Bounds> for LocationResponse {
 
 /// Serde representation of a location
 #[derive(Debug, Serialize)]
-struct Location {
-    lat: f64,
-    lng: f64,
+pub struct Location {
+    pub lat: f64,
+    pub lng: f64,
 }
 
 /// Main entrypoint to geolocate a client.
@@ -125,6 +126,7 @@ struct Location {
 pub async fn service(
     data: Result<web::Json<LocationRequest>, Error>,
     pool: web::Data<PgPool>,
+    mmdb: web::Data<Option<MMDB>>,
     req: HttpRequest,
 ) -> actix_web::Result<HttpResponse> {
     let data = match data {
@@ -235,23 +237,21 @@ pub async fn service(
             .headers()
             .get("X-Forwarded-For")
             .and_then(|x| x.to_str().ok())
-            .and_then(|x| IpNetwork::from_str(x).ok())
+            .and_then(|x| IpAddr::from_str(x).ok())
             .context("failed to get client ip address")
             .map_err(ErrorInternalServerError)?;
-        if let Some(record) = query_file!("src/geoip/lookup.sql", ip)
-            .fetch_optional(&*pool)
-            .await
-            .map_err(ErrorInternalServerError)?
-        {
-            return Ok(HttpResponse::Ok().json(json!({
-                "license": crate::geoip::LICENSE,
-                "location": {
-                    "lat": record.latitude,
-                    "lng": record.longitude,
-                },
-                "accuracy": 25_000,
-                "fallback": "ipf"
-            })));
+
+        if let Some(mmdb) = mmdb.get_ref() {
+            if let Some(location) =
+                crate::geoip::lookup(mmdb, ip).map_err(ErrorInternalServerError)?
+            {
+                return Ok(HttpResponse::Ok().json(json!({
+                    "license": crate::geoip::LICENSE,
+                    "location": location,
+                    "accuracy": crate::geoip::LOCATION_ACCURACY,
+                    "fallback": "ipf"
+                })));
+            }
         }
     }
 

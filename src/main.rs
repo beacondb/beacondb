@@ -1,9 +1,12 @@
 //! `beacondb` is a server to geolocate a client based on the nearby wifis, cell towers and bluetooth beacons.
 //! It is also used to collect data from mappers and processes that data.
 
-use std::path::{Path, PathBuf};
+use std::{
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 
-use actix_web::{web, App, HttpServer};
+use actix_web::{App, HttpServer, web};
 use anyhow::Result;
 use clap::{Args, Parser, Subcommand};
 use sqlx::PgPool;
@@ -54,8 +57,6 @@ enum Command {
     },
     /// Reformat data to the MLS format
     FormatMls,
-    /// Import mapping from ip address to a geolocation
-    ImportGeoip,
 }
 
 #[tokio::main]
@@ -73,12 +74,18 @@ async fn main() -> Result<()> {
 
     match cli.command {
         Command::Serve => {
+            let geoip = match &config.geoip_path {
+                Some(path) => Some(geoip::load(&path)?),
+                None => None,
+            };
+            let geoip = Arc::new(geoip);
+
             println!("beaconDB server is starting at port {}", config.http_port);
             HttpServer::new(move || {
                 App::new()
                     .app_data(web::Data::new(pool.clone()))
                     .app_data(web::JsonConfig::default().limit(500 * 1024 * 1024))
-                    .service(geoip::country_service)
+                    .app_data(web::Data::from(geoip.clone()))
                     .service(geolocate::service)
                     .service(submission::geosubmit::service)
             })
@@ -93,7 +100,6 @@ async fn main() -> Result<()> {
 
         Command::Bulk { command } => bulk::run(pool, config, command).await?,
 
-        Command::ImportGeoip => geoip::import::run(pool).await?,
         Command::FormatMls => mls::format()?,
     };
 
