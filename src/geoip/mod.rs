@@ -4,63 +4,63 @@
 //! `beacondb` tries to estimate the location from the ip address.
 //! The `DB-IP` dataset is used to link the ip address to a location.
 
-use std::str::FromStr;
+use std::{fs, net::IpAddr, path::PathBuf};
 
-use actix_web::{error::ErrorInternalServerError, post, web, HttpRequest, HttpResponse};
-use anyhow::Context;
-use ipnetwork::IpNetwork;
-use serde_json::json;
-use sqlx::{query_file, PgPool};
+use anyhow::{Context, Result, bail};
+use maxminddb::{Metadata, Reader, path};
 
-mod country;
-pub use country::Country;
-pub mod import;
+use crate::geolocate::Location;
 
-/// License of DB-IP data
+/// Constants used for GeoIP
 pub const LICENSE: &str =
     "IP geolocation data sourced from IP to City Lite by DB-IP, licensed under CC BY 4.0.";
 
-/// Geolocalize user based on IP
-#[post("/v1/country")]
-pub async fn country_service(
-    pool: web::Data<PgPool>,
-    req: HttpRequest,
-) -> actix_web::Result<HttpResponse> {
-    let ip = req
-        .headers()
-        .get("X-Forwarded-For")
-        .and_then(|x| x.to_str().ok())
-        .and_then(|x| IpNetwork::from_str(x).ok())
-        .context("failed to get client ip address")
-        .map_err(ErrorInternalServerError)?;
+pub const DATABASE_TYPE: &str = "DBIP-City-Lite";
 
-    if let Some(record) = query_file!("src/geoip/lookup.sql", ip)
-        .fetch_optional(&**pool)
-        .await
-        .context("database error")
-        .map_err(ErrorInternalServerError)?
-    {
-        let country: Country = record
-            .country
-            .parse()
-            .context("invalid database")
-            .map_err(ErrorInternalServerError)?;
-        Ok(HttpResponse::Ok().json(json!({
-            "license": LICENSE,
-            "country_code": country.as_ref(),
-            "country_name": country.name(),
-            "fallback": "ipf"
-        })))
+// DB-IP data does not include location accuracy
+pub const LOCATION_ACCURACY: u64 = 25_000;
+
+pub type MMDB = Reader<Vec<u8>>;
+
+pub fn load(path: &PathBuf) -> Result<MMDB> {
+    eprintln!("Loading GeoIP...");
+    let buf = fs::read(path)?;
+
+    let database = maxminddb::Reader::from_source(buf)?;
+
+    let Metadata {
+        database_type,
+        build_epoch,
+        ..
+    } = &database.metadata;
+
+    // if you want to use a database from another provider, you'll most
+    // likely need to change the paths used to access lat/lon data
+    if database_type != DATABASE_TYPE {
+        bail!("Unexpected GeoIP database type: {}", database_type);
+    }
+
+    eprintln!("Loaded GeoIP: {database_type} {build_epoch} ");
+    Ok(database)
+}
+
+pub fn lookup(mmdb: &MMDB, ip: IpAddr) -> Result<Option<Location>> {
+    let result = mmdb.lookup(ip)?;
+    if result.has_data() {
+        let latitude: f64 = result
+            .decode_path(&path!["location", "latitude"])
+            .context("geoip type mismatch")?
+            .context("geoip data path missing")?;
+        let longitude: f64 = result
+            .decode_path(&path!["location", "longitude"])
+            .context("geoip type mismatch")?
+            .context("geoip data path missing")?;
+
+        Ok(Some(Location {
+            lat: latitude,
+            lng: longitude,
+        }))
     } else {
-        Ok(HttpResponse::NotFound().json(json!({
-            "error": {
-                "errors": [{
-                    "domain": "geolocation",
-                    "reason": "notFound",
-                    "message": "No location could be estimated based on the data provided",
-                }],
-                "code": 404,
-                "message": "Not found",
-        }})))
+        Ok(None)
     }
 }

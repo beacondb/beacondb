@@ -20,6 +20,9 @@ pub struct Config {
     /// Resolution of the h3 hexagons in the data map preview
     pub h3_resolution: u8,
 
+    /// Path to a GeoIP database to load into memory
+    pub geoip_path: Option<PathBuf>,
+
     /// Optional statistics configuration
     pub stats: Option<StatsConfig>,
 }
