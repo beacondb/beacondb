@@ -185,13 +185,13 @@ fn should_ignore_report(parsed: &Report) -> bool {
 /// Will return None if the report has data quality issues and should therefore be completely ignored.
 pub fn load(raw: &[u8]) -> Result<Option<(Position, Vec<Transmitter>)>> {
     let parsed: Report = serde_json::from_slice(raw)?;
-    parsed.load()
+    Ok(parsed.load())
 }
 
 impl Report {
-    pub fn load(self) -> Result<Option<(Position, Vec<Transmitter>)>> {
+    pub fn load(self) -> Option<(Position, Vec<Transmitter>)> {
         if should_ignore_report(&self) {
-            return Ok(None);
+            return None;
         }
 
         let mut txs = Vec::new();
@@ -253,7 +253,8 @@ impl Report {
                 age: bt.age.map(Into::into),
             })
         }
-        Ok(Some((self.position, txs)))
+
+        Some((self.position, txs))
     }
 }
 

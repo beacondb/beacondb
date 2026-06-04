@@ -15,6 +15,7 @@ use crate::config::Config;
 mod export;
 mod map_cells;
 mod parse;
+mod process;
 
 #[derive(Debug, Subcommand)]
 pub enum BulkCommand {
@@ -22,6 +23,8 @@ pub enum BulkCommand {
     Export,
     /// Parse reports to catch unexpected parsing errors
     Parse,
+    /// Update database based on exported reports
+    Process,
     /// Calculate h3 cells for the map table without reprocessing the entire database
     MapCells,
 }
@@ -45,6 +48,9 @@ pub async fn run(pool: PgPool, config: Config, command: BulkCommand) -> Result<(
         }
         BulkCommand::MapCells => {
             map_cells::run(config)?;
+        }
+        BulkCommand::Process => {
+            process::run(&config, pool).await?;
         }
     }
 

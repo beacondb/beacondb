@@ -2,7 +2,7 @@ use std::io::stdin;
 
 use anyhow::Result;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 use crate::{bulk::BulkReport, submission::report::Report};
 
@@ -53,7 +53,6 @@ fn handle_report(report: &str) -> Result<Option<Value>> {
 }
 
 fn parse_report(raw: &Value) -> Result<()> {
-    let parsed: Report = serde_json::from_value(raw.clone())?;
-    parsed.load()?;
+    let _: Report = serde_json::from_value(raw.clone())?;
     Ok(())
 }

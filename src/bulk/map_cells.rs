@@ -17,10 +17,7 @@ pub fn run(config: Config) -> Result<()> {
             Ok(x) => x,
             Err(_) => continue,
         };
-        let loaded = match parsed.load() {
-            Ok(x) => x,
-            Err(_) => continue,
-        };
+        let loaded = parsed.load();
         i += 1;
         if (i % 1_000_000) == 0 {
             eprintln!("{i}");

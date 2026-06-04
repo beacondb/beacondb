@@ -34,12 +34,14 @@ use std::{
 
 use anyhow::Result;
 use geo::{Destination, Point, Rhumb};
-use h3o::LatLng;
 use h3o::Resolution;
+use h3o::{CellIndex, LatLng};
 use serde::Serialize;
 use sqlx::{PgPool, query, query_scalar};
 
-use crate::{bounds::TransmitterLocation, config::Config, model::Transmitter};
+use crate::{
+    bounds::TransmitterLocation, config::Config, model::Transmitter, submission::report::Position,
+};
 
 // 2 for outside, 3-5 inside based on https://codeberg.org/beacondb/beacondb/issues/31#issuecomment-3098830
 // const SIGNAL_DROP_COEFFICIENT: f64 = 5.0;
@@ -48,56 +50,28 @@ const SIGNAL_DROP_COEFFICIENT: f64 = 3.0;
 // RSSI at 1m from AP, used to estimate accuracy
 const BASE_RSSI: f64 = -30.0;
 
-/// Process new submissions
-pub async fn run(pool: PgPool, config: Config) -> Result<()> {
-    loop {
-        let mut tx = pool.begin().await?;
-        let reports =
-            query!("select id, raw, user_agent from report where processed_at is null order by id limit 10000")
-                .fetch_all(&mut *tx)
-                .await?;
-        let mut modified: BTreeMap<Transmitter, TransmitterLocation> = BTreeMap::new();
-        let mut h3s = BTreeSet::new();
+/// Modified transmitters are usually updated by multiple reports, so for
+/// performance they are updated in memory with this struct before being updated
+/// in the database
+#[derive(Default)]
+pub struct BatchProcessor {
+    pub modified: BTreeMap<Transmitter, TransmitterLocation>,
+    pub h3s: BTreeSet<CellIndex>,
+}
 
-        let last_report_in_batch = if let Some(report) = reports.last() {
-            report.id
-        } else {
-            eprintln!("finished processing");
-            break;
-        };
+impl BatchProcessor {
+    pub fn new() -> Self {
+        Self::default()
+    }
 
-        for report in reports {
-            query!(
-                "update report set processed_at = now() where id = $1",
-                report.id
-            )
-            .execute(&mut *tx)
-            .await?;
-
-            let loaded_report = match super::report::load(&report.raw) {
-                Ok(x) => x,
-                Err(e) => {
-                    eprintln!(
-                        "Failed to parse report #{} from '{}': {e}",
-                        report.id,
-                        report.user_agent.unwrap_or_default()
-                    );
-                    query!(
-                        "update report set processing_error = $1 where id = $2",
-                        format!("{e}"),
-                        report.id
-                    )
-                    .execute(&mut *tx)
-                    .await?;
-                    continue;
-                }
-            };
-
-            let (pos, txs) = match loaded_report {
-                Some(x) => x,
-                None => continue, // report was ignored
-            };
-
+    pub async fn process(
+        &mut self,
+        config: &Config,
+        pool: &PgPool,
+        pos: Position,
+        txs: Vec<Transmitter>,
+    ) -> Result<()> {
+        if txs.len() > 0 {
             for x in txs {
                 // If we can't get the signal strength, assume a low value
                 // to prevent accuracy from being overestimated.
@@ -172,23 +146,29 @@ pub async fn run(pool: PgPool, config: Config) -> Result<()> {
 
                 let accuracy = distance_from_transmitter + pos.accuracy.unwrap_or_default();
 
-                if let Some(b) = modified.get_mut(&x) {
+                if let Some(b) = self.modified.get_mut(&x) {
                     b.update(lat, lon, accuracy, weight);
                 } else if let Some(b) = x.lookup(&pool).await? {
-                    modified.insert(x, b.update(lat, lon, accuracy, weight));
+                    self.modified
+                        .insert(x, b.update(lat, lon, accuracy, weight));
                 } else {
-                    modified.insert(x, TransmitterLocation::new(lat, lon, accuracy, weight));
+                    self.modified
+                        .insert(x, TransmitterLocation::new(lat, lon, accuracy, weight));
                 }
             }
 
             let pos = LatLng::new(pos.latitude, pos.longitude)?;
             let h3 = pos.to_cell(Resolution::try_from(config.h3_resolution)?);
-            h3s.insert(h3);
+            self.h3s.insert(h3);
         }
 
-        let modified_count = modified.len();
+        Ok(())
+    }
 
-        for (x, b) in modified {
+    pub async fn commit(self, pool: &PgPool) -> Result<()> {
+        let mut tx = pool.begin().await?;
+
+        for (x, b) in self.modified {
             match x {
                 Transmitter::Cell {
                     radio,
@@ -243,7 +223,7 @@ pub async fn run(pool: PgPool, config: Config) -> Result<()> {
             }
         }
 
-        for h3 in h3s {
+        for h3 in self.h3s {
             let h3_binary = u64::from(h3).to_be_bytes();
             query!(
                 "insert into map (h3) values ($1) on conflict (h3) do nothing",
@@ -253,6 +233,63 @@ pub async fn run(pool: PgPool, config: Config) -> Result<()> {
             .await?;
         }
 
+        tx.commit().await?;
+
+        Ok(())
+    }
+}
+
+/// Process new submissions
+pub async fn run(pool: PgPool, config: Config) -> Result<()> {
+    loop {
+        let mut tx = pool.begin().await?;
+        let reports =
+            query!("select id, raw, user_agent from report where processed_at is null order by id limit 10000")
+                .fetch_all(&mut *tx)
+                .await?;
+        let mut processor = BatchProcessor::new();
+
+        let last_report_in_batch = if let Some(report) = reports.last() {
+            report.id
+        } else {
+            eprintln!("finished processing");
+            break;
+        };
+
+        for report in reports {
+            query!(
+                "update report set processed_at = now() where id = $1",
+                report.id
+            )
+            .execute(&mut *tx)
+            .await?;
+
+            let report = match super::report::load(&report.raw) {
+                Ok(x) => x,
+                Err(e) => {
+                    eprintln!(
+                        "Failed to parse report #{} from '{}': {e}",
+                        report.id,
+                        report.user_agent.unwrap_or_default()
+                    );
+                    query!(
+                        "update report set processing_error = $1 where id = $2",
+                        format!("{e}"),
+                        report.id
+                    )
+                    .execute(&mut *tx)
+                    .await?;
+                    continue;
+                }
+            };
+
+            if let Some((pos, txs)) = report {
+                processor.process(&config, &pool, pos, txs).await?;
+            }
+        }
+
+        let modified_count = processor.modified.len();
+        processor.commit(&pool).await?;
         tx.commit().await?;
         eprintln!(
             "processed reports up to #{last_report_in_batch} - {modified_count} transmitters modified"
