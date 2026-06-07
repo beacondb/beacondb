@@ -2,7 +2,7 @@
 
 use mac_address::MacAddress;
 use serde::Deserialize;
-use sqlx::{query_as, PgPool};
+use sqlx::{PgPool, query_as};
 
 use crate::bounds::TransmitterLocation;
 

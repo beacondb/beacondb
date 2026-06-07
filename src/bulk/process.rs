@@ -31,7 +31,7 @@ pub async fn run(config: &Config, pool: PgPool) -> Result<()> {
         }
 
         i += 1;
-        if i > 0 && i % 50_000 == 0 {
+        if i > 0 && i % 100_000 == 0 {
             eprintln!("{} in batch. committing...", processor.modified.len());
             processor.commit(&pool).await?;
             eprintln!("processed {i} reports - completed up to #{}", bulk.id);
@@ -39,6 +39,8 @@ pub async fn run(config: &Config, pool: PgPool) -> Result<()> {
             processor = BatchProcessor::new();
         }
     }
+
+    processor.commit(&pool).await?;
 
     Ok(())
 }
