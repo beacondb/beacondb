@@ -1,15 +1,16 @@
 //! Contains the service that receives new submissions.
 
 use actix_web::{
+    HttpRequest, HttpResponse, Responder,
     error::ErrorInternalServerError,
-    http::{header::USER_AGENT, StatusCode},
-    post, web, HttpRequest, HttpResponse, Responder,
+    http::{StatusCode, header::USER_AGENT},
+    post, web,
 };
 use anyhow::Context;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use sqlx::{query, PgPool};
+use sqlx::{PgPool, query};
 
 // only the bare minimum is parsed here: it is assumed that certain data issues
 // may be due to device manufacturer software, making it difficult for
@@ -56,7 +57,7 @@ pub async fn service(
     let ua = match req.headers().get(USER_AGENT).map(|x| x.to_str()) {
         Some(Ok(x)) => Some(x),
         Some(Err(_)) => {
-            return Ok(HttpResponse::BadRequest().body("user agent contains invalid characters"))
+            return Ok(HttpResponse::BadRequest().body("user agent contains invalid characters"));
         }
         None => None,
     };

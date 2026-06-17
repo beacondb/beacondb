@@ -8,12 +8,12 @@ use geo::{BooleanOps, Translate};
 use geo_types::{Coord, LineString, Polygon};
 use geojson::Geometry;
 use h3o::{CellIndex, DirectedEdgeIndex};
-use sqlx::{query_scalar, PgPool};
+use sqlx::{PgPool, query_scalar};
 use std::array::from_fn;
 use std::cell::Cell;
 use std::collections::VecDeque;
-use std::io::{stdout, Write};
-use std::sync::mpsc::{sync_channel, SyncSender};
+use std::io::{Write, stdout};
+use std::sync::mpsc::{SyncSender, sync_channel};
 use std::thread;
 
 const EPSILON: f64 = 0.00000000001;
@@ -462,7 +462,7 @@ fn convert(x: Vec<u8>) -> u64 {
 
 #[cfg(test)]
 mod tests {
-    use crate::map::{process, Cluster};
+    use crate::map::{Cluster, process};
     use futures::stream;
     use geo::Coord;
     use geo_types::{LineString, Polygon};

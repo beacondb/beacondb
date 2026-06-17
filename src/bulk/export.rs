@@ -1,6 +1,6 @@
 use anyhow::Result;
 use futures::TryStreamExt;
-use sqlx::{query, PgPool};
+use sqlx::{PgPool, query};
 
 use super::BulkReport;
 
