@@ -4,7 +4,7 @@ BeaconDB supports exporting submitted data as `.jsonl` ([JSON Lines](https://jso
 
 If you're exporting data for debugging or analysis, you can run `beacondb bulk export` to export data as JSON on standard output. The `bulk export` command only reads data, and does not modify or delete any data in Postgres. The guide below shows how to safely export data out of Postgres.
 
-There is no built-in support for importing raw report data back into Postgres once exported, but all report metadata stored in Postgres is exported (shown below). [Data can still be reprocessed using `beacondb bulk process`.](/docs/reprocessing.md)
+There is no built-in support for importing raw report data back into Postgres once exported, but all report metadata stored in Postgres is exported (shown below). [Data can still be reprocessed using `beacondb bulk process`.](./reprocessing.md)
 
 ```jsonc
 // (this report is pretty-printed here, but would really be one line)

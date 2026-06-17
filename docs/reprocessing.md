@@ -1,6 +1,6 @@
 # Reprocessing data
 
-As BeaconDB's algorithms are not yet stablised, instance owners may need to reprocess submitted data as part of new releases. There are two ways to do so, depending on how large your database is. For databases with less than 10 million reports, marking reports as unprocessed in Postgres is the easiest solution. For larger databases, storing reports in Postgres becomes infeasible and instead should be [exported as JSON](/docs/exporting-data.md) before being reprocessed.
+As BeaconDB's algorithms are not yet stablised, instance owners may need to reprocess submitted data as part of new releases. There are two ways to do so, depending on how large your database is. For databases with less than 10 million reports, marking reports as unprocessed in Postgres is the easiest solution. For larger databases, storing reports in Postgres becomes infeasible and instead should be [exported as JSON](./exporting-data.md) before being reprocessed.
 
 > [!WARNING]
 >
@@ -23,7 +23,7 @@ The database can then be processed as usual (`beacondb process`).
 
 ## Reprocessing exported data (>10M)
 
-Data [exported from BeaconDB](/docs/exporting-data.md) can be reprocessed using `beacondb bulk process`.
+Data [exported from BeaconDB](./exporting-data.md) can be reprocessed using `beacondb bulk process`.
 
 Bulk-processing will write data to the `cell`, `wifi`, `bluetooth` and `map` tables - exactly the same as `beacondb process` but reports are read from standard input instead of Postgres.
 
