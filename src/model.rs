@@ -78,7 +78,7 @@ impl Transmitter {
             Transmitter::Bluetooth { mac, .. } => {
                 query_as!(
                     TransmitterLocation,
-                    "select min_lat, min_lon, max_lat, max_lon, lat, lon, accuracy, total_weight from wifi where mac = $1",
+                    "select min_lat, min_lon, max_lat, max_lon, lat, lon, accuracy, total_weight from bluetooth where mac = $1",
                     mac
                 )
                 .fetch_optional(pool)
