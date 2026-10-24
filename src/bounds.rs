@@ -22,7 +22,7 @@ impl Bounds {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 pub struct TransmitterLocation {
     pub min_lat: f64,
     pub min_lon: f64,
@@ -59,7 +59,7 @@ impl TransmitterLocation {
     }
 
     /// Add new data to the weighted average
-    pub fn update(mut self, lat: f64, lon: f64, accuracy: f64, weight: f64) -> Self {
+    pub fn update(&mut self, lat: f64, lon: f64, accuracy: f64, weight: f64) -> &mut Self {
         // TODO: Add tests
         if lat < self.min_lat {
             self.min_lat = lat;
@@ -91,8 +91,8 @@ mod tests {
     #[test]
     fn test_transmitter_location_update() {
         // Values were chosen so all floats are rounds, to be easier to test
-        let location = TransmitterLocation::new(0.0, 0.0, 20.0, 1.0);
-        let location = location.update(1.8, 0.9, 5.0, 2.0);
+        let mut location = TransmitterLocation::new(0.0, 0.0, 20.0, 1.0);
+        location.update(1.8, 0.9, 5.0, 2.0);
 
         assert_eq!(location.max_lat, 1.8);
         assert_eq!(location.max_lon, 0.9);

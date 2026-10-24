@@ -40,7 +40,7 @@ use serde::Serialize;
 use sqlx::{PgPool, query, query_scalar};
 
 use crate::{
-    bounds::TransmitterLocation, config::Config, model::Transmitter, submission::report::Position,
+    bounds::TransmitterLocation, config::Config, model::{Transmitter, TransmitterWithMetadata}, submission::report::Position,
 };
 
 // 2 for outside, 3-5 inside based on https://codeberg.org/beacondb/beacondb/issues/31#issuecomment-3098830
@@ -69,7 +69,7 @@ impl BatchProcessor {
         config: &Config,
         pool: &PgPool,
         pos: Position,
-        txs: Vec<Transmitter>,
+        txs: Vec<TransmitterWithMetadata>,
     ) -> Result<()> {
         if txs.len() > 0 {
             for x in txs {
@@ -77,13 +77,13 @@ impl BatchProcessor {
                 // to prevent accuracy from being overestimated.
                 // It also implies lower weight, so it can quickly be
                 // improved by other reports with more data
-                let rssi = x.signal_strength().unwrap_or(-90);
+                let rssi = x.signal_strength.unwrap_or(-90);
 
                 let distance_since_scan;
                 let lat;
                 let lon;
                 if let Some(speed) = pos.speed
-                    && let Some(wifi_age) = x.age()
+                    && let Some(wifi_age) = x.age
                     && let Some(pos_age) = pos.age
                 {
                     distance_since_scan = speed * (wifi_age as f64 - pos_age as f64) / 1000.0;
@@ -146,14 +146,14 @@ impl BatchProcessor {
 
                 let accuracy = distance_from_transmitter + pos.accuracy.unwrap_or_default();
 
-                if let Some(b) = self.modified.get_mut(&x) {
+                if let Some(b) = self.modified.get_mut(&x.transmitter) {
                     b.update(lat, lon, accuracy, weight);
-                } else if let Some(b) = x.lookup(&pool).await? {
+                } else if let Some(mut b) = x.transmitter.lookup(&pool).await? {
                     self.modified
-                        .insert(x, b.update(lat, lon, accuracy, weight));
+                        .insert(x.transmitter, b.update(lat, lon, accuracy, weight).clone());
                 } else {
                     self.modified
-                        .insert(x, TransmitterLocation::new(lat, lon, accuracy, weight));
+                        .insert(x.transmitter, TransmitterLocation::new(lat, lon, accuracy, weight));
                 }
             }
 
@@ -177,8 +177,6 @@ impl BatchProcessor {
                     area,
                     cell,
                     unit,
-                    signal_strength: _,
-                    age: _,
                 } => {
                     query!(
                         "insert into cell (radio, country, network, area, cell, unit, min_lat, min_lon, max_lat, max_lon, lat, lon, accuracy, total_weight) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
@@ -192,8 +190,6 @@ impl BatchProcessor {
                 }
                 Transmitter::Wifi {
                     mac,
-                    signal_strength: _,
-                    age: _,
                 } => {
                     query!(
                         "insert into wifi (mac, min_lat, min_lon, max_lat, max_lon, lat, lon, accuracy, total_weight) values ($1, $2, $3, $4, $5, $6, $7, $8, $9)
@@ -207,8 +203,6 @@ impl BatchProcessor {
                 }
                 Transmitter::Bluetooth {
                     mac,
-                    signal_strength: _,
-                    age: _,
                 } => {
                     query!(
                         "insert into bluetooth (mac, min_lat, min_lon, max_lat, max_lon, lat, lon, accuracy, total_weight) values ($1, $2, $3, $4, $5, $6, $7, $8, $9)

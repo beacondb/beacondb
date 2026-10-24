@@ -4,7 +4,7 @@ use anyhow::Result;
 use mac_address::MacAddress;
 use serde::Deserialize;
 
-use crate::model::{CellRadio, Transmitter};
+use crate::model::{CellRadio, Transmitter, TransmitterWithMetadata};
 
 /// Serde representation to deserialize report
 #[derive(Deserialize)]
@@ -183,13 +183,13 @@ fn should_ignore_report(parsed: &Report) -> bool {
 
 /// Loads a report's raw JSON data and returns parsed information that should be then used to update the database.
 /// Will return None if the report has data quality issues and should therefore be completely ignored.
-pub fn load(raw: &[u8]) -> Result<Option<(Position, Vec<Transmitter>)>> {
+pub fn load(raw: &[u8]) -> Result<Option<(Position, Vec<TransmitterWithMetadata>)>> {
     let parsed: Report = serde_json::from_slice(raw)?;
     Ok(parsed.load())
 }
 
 impl Report {
-    pub fn load(self) -> Option<(Position, Vec<Transmitter>)> {
+    pub fn load(self) -> Option<(Position, Vec<TransmitterWithMetadata>)> {
         if should_ignore_report(&self) {
             return None;
         }
@@ -209,22 +209,24 @@ impl Report {
                 continue;
             }
 
-            txs.push(Transmitter::Cell {
-                radio: match cell.radio_type {
-                    RadioType::Gsm => CellRadio::Gsm,
-                    RadioType::Umts => CellRadio::Wcdma,
-                    RadioType::Lte => CellRadio::Lte,
-                    RadioType::Nr => CellRadio::Nr,
+            txs.push(TransmitterWithMetadata {
+                transmitter: Transmitter::Cell {
+                    radio: match cell.radio_type {
+                        RadioType::Gsm => CellRadio::Gsm,
+                        RadioType::Umts => CellRadio::Wcdma,
+                        RadioType::Lte => CellRadio::Lte,
+                        RadioType::Nr => CellRadio::Nr,
+                    },
+                    // postgres uses signed integers
+                    country: cell.mobile_country_code as i16,
+                    network: cell.mobile_network_code as i16,
+                    area: cell.location_area_code.unwrap() as i32,
+                    cell: cell.cell_id.unwrap() as i64,
+                    unit: cell.primary_scrambling_code.unwrap() as i16,
                 },
-                // postgres uses signed integers
-                country: cell.mobile_country_code as i16,
-                network: cell.mobile_network_code as i16,
-                area: cell.location_area_code.unwrap() as i32,
-                cell: cell.cell_id.unwrap() as i64,
-                unit: cell.primary_scrambling_code.unwrap() as i16,
                 signal_strength: signal_strength(&cell),
                 age: cell.age.map(Into::into),
-            })
+            });
         }
         for wifi in self.wifi_access_points.unwrap_or_default() {
             if should_ignore_transmitter(&self.position, wifi.age) {
@@ -236,8 +238,10 @@ impl Report {
                 .map(|x| x.replace('\0', ""))
                 .filter(|x| !x.is_empty());
             if ssid.is_some_and(|x| !x.contains("_nomap") && !x.contains("_optout")) {
-                txs.push(Transmitter::Wifi {
-                    mac: wifi.mac_address,
+                txs.push(TransmitterWithMetadata {
+                    transmitter: Transmitter::Wifi {
+                        mac: wifi.mac_address,
+                    },
                     signal_strength: wifi.signal_strength,
                     age: wifi.age.map(Into::into),
                 });
@@ -247,11 +251,13 @@ impl Report {
             if should_ignore_transmitter(&self.position, bt.age) {
                 continue;
             }
-            txs.push(Transmitter::Bluetooth {
-                mac: bt.mac_address,
+            txs.push(TransmitterWithMetadata {
+                transmitter: Transmitter::Bluetooth {
+                    mac: bt.mac_address,
+                },
                 signal_strength: bt.signal_strength,
                 age: bt.age.map(Into::into),
-            })
+            });
         }
 
         Some((self.position, txs))

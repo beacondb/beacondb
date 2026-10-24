@@ -7,6 +7,7 @@ use sqlx::{PgPool, query_as};
 use crate::bounds::TransmitterLocation;
 
 /// A transmitter (cell tower, wifi network or bluetooth beacon)
+/// A transmitter must be represented by one and unique object
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Transmitter {
     /// A cell tower
@@ -18,21 +19,11 @@ pub enum Transmitter {
         area: i32,
         cell: i64,
         unit: i16,
-        signal_strength: Option<i16>,
-        age: Option<i64>,
     },
     /// A wifi network based on its MAC-Address
-    Wifi {
-        mac: MacAddress,
-        signal_strength: Option<i16>,
-        age: Option<i64>,
-    },
+    Wifi { mac: MacAddress },
     /// A Bluetooth beacon
-    Bluetooth {
-        mac: MacAddress,
-        signal_strength: Option<i16>,
-        age: Option<i64>,
-    },
+    Bluetooth { mac: MacAddress },
 }
 
 /// Cell radio type
@@ -57,8 +48,6 @@ impl Transmitter {
                 area,
                 cell,
                 unit,
-                signal_strength: _,
-                age: _,
             } => {
                 query_as!(
                     TransmitterLocation,
@@ -88,26 +77,13 @@ impl Transmitter {
 
         Ok(bounds)
     }
+}
 
-    pub fn signal_strength(self) -> Option<i16> {
-        match self {
-            Transmitter::Cell {
-                signal_strength, ..
-            } => signal_strength,
-            Transmitter::Wifi {
-                signal_strength, ..
-            } => signal_strength,
-            Transmitter::Bluetooth {
-                signal_strength, ..
-            } => signal_strength,
-        }
-    }
-
-    pub fn age(self) -> Option<i64> {
-        match self {
-            Transmitter::Cell { age, .. } => age,
-            Transmitter::Wifi { age, .. } => age,
-            Transmitter::Bluetooth { age, .. } => age,
-        }
-    }
+/// A transmitter, along with corresponding measurement information (age and
+/// signal strength).
+#[derive(Debug)]
+pub struct TransmitterWithMetadata {
+    pub signal_strength: Option<i16>,
+    pub age: Option<i64>,
+    pub transmitter: Transmitter,
 }
