@@ -59,7 +59,7 @@ impl TransmitterLocation {
     }
 
     /// Add new data to the weighted average
-    pub fn update(&mut self, lat: f64, lon: f64, accuracy: f64, weight: f64) -> &mut Self {
+    pub fn update(&mut self, lat: f64, lon: f64, accuracy: f64, weight: f64) {
         // TODO: Add tests
         if lat < self.min_lat {
             self.min_lat = lat;
@@ -79,8 +79,6 @@ impl TransmitterLocation {
             / (self.total_weight + weight);
 
         self.total_weight += weight;
-
-        self
     }
 }
 
@@ -103,7 +101,7 @@ mod tests {
         assert_eq!(location.accuracy, 10.0);
         assert_eq!(location.total_weight, 3.0);
 
-        let location = location.update(-7.2, -4.5, 5.0, 2.0);
+        location.update(-7.2, -4.5, 5.0, 2.0);
 
         assert_eq!(location.max_lat, 1.8);
         assert_eq!(location.max_lon, 0.9);

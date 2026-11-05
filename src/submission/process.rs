@@ -40,7 +40,10 @@ use serde::Serialize;
 use sqlx::{PgPool, query, query_scalar};
 
 use crate::{
-    bounds::TransmitterLocation, config::Config, model::{Transmitter, TransmitterWithMetadata}, submission::report::Position,
+    bounds::TransmitterLocation,
+    config::Config,
+    model::{Transmitter, TransmitterWithMetadata},
+    submission::report::Position,
 };
 
 // 2 for outside, 3-5 inside based on https://codeberg.org/beacondb/beacondb/issues/31#issuecomment-3098830
@@ -149,11 +152,13 @@ impl BatchProcessor {
                 if let Some(b) = self.modified.get_mut(&x.transmitter) {
                     b.update(lat, lon, accuracy, weight);
                 } else if let Some(mut b) = x.transmitter.lookup(&pool).await? {
-                    self.modified
-                        .insert(x.transmitter, b.update(lat, lon, accuracy, weight).clone());
+                    b.update(lat, lon, accuracy, weight);
+                    self.modified.insert(x.transmitter, b);
                 } else {
-                    self.modified
-                        .insert(x.transmitter, TransmitterLocation::new(lat, lon, accuracy, weight));
+                    self.modified.insert(
+                        x.transmitter,
+                        TransmitterLocation::new(lat, lon, accuracy, weight),
+                    );
                 }
             }
 
@@ -188,9 +193,7 @@ impl BatchProcessor {
                 .execute(&mut *tx)
                 .await?;
                 }
-                Transmitter::Wifi {
-                    mac,
-                } => {
+                Transmitter::Wifi { mac } => {
                     query!(
                         "insert into wifi (mac, min_lat, min_lon, max_lat, max_lon, lat, lon, accuracy, total_weight) values ($1, $2, $3, $4, $5, $6, $7, $8, $9)
                          on conflict (mac) do update set min_lat = EXCLUDED.min_lat, min_lon = EXCLUDED.min_lon, max_lat = EXCLUDED.max_lat, max_lon = EXCLUDED.max_lon,
@@ -201,9 +204,7 @@ impl BatchProcessor {
                 .execute(&mut *tx)
                 .await?;
                 }
-                Transmitter::Bluetooth {
-                    mac,
-                } => {
+                Transmitter::Bluetooth { mac } => {
                     query!(
                         "insert into bluetooth (mac, min_lat, min_lon, max_lat, max_lon, lat, lon, accuracy, total_weight) values ($1, $2, $3, $4, $5, $6, $7, $8, $9)
                          on conflict (mac) do update set min_lat = EXCLUDED.min_lat, min_lon = EXCLUDED.min_lon, max_lat = EXCLUDED.max_lat, max_lon = EXCLUDED.max_lon,
