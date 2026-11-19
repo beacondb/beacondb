@@ -1,0 +1,30 @@
+services:
+  db:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: beacondb
+      POSTGRES_USER: beacondb
+      POSTGRES_PASSWORD: beacondb
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "beacondb"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  beacondb:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./config.toml:/config.toml:ro
+    command: ["-c", "/config.toml", "serve"]
+
+volumes:
+  pgdata:

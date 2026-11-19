@@ -1,0 +1,8 @@
+target/
+.git/
+.env
+*.md
+docs/
+flake.nix
+flake.lock
+result
